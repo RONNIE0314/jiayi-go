@@ -186,8 +186,9 @@ export default function App() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // 这行代码确保 Google 登录后会精准跳回你的 localhost:3000
-          redirectTo: 'http://localhost:3000',
+          // window.location.origin 会自动获取当前的域名
+        // 在电脑上就是 localhost:3000，在手机上就是你的 Vercel 网址
+        redirectTo: window.location.origin,
           queryParams: {
           access_type: 'offline',
           prompt: 'consent',
