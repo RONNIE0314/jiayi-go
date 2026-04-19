@@ -168,6 +168,7 @@ function AdminPlayersPage({ players, fetchPlayers }) {
 // --- 3. 主 App 组件 ---
 export default function App() {
   const [activeTab, setActiveTab] = useState('events');
+  const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
@@ -180,21 +181,20 @@ export default function App() {
     if (e) setEvents(e);
   };
 
-  // --- 把这段代码复制进去 ---
-  const handleLogin = async () => {
+const handleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // window.location.origin 会自动获取当前的域名
-        // 在电脑上就是 localhost:3000，在手机上就是你的 Vercel 网址
-        redirectTo: window.location.origin,
+          // 自动获取域名，适配 localhost 或线上环境
+          redirectTo: window.location.origin,
           queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-        }
-      });
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        }, // 👈 这一行后面是逗号，闭合的是 options
+      }); // 👈 这一行是圆括号 + 分号，闭合的是整个 signInWithOAuth
+
       if (error) throw error;
     } catch (error) {
       console.error("登录出错:", error.message);
@@ -204,6 +204,20 @@ export default function App() {
 const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
+    setIsVerified(false); // ✅ 退出登录时，同时也重置 OGS 验证状态
+  };
+
+  // --- 处理 OGS 验证 (非管理员点击按钮触发) ---
+  const handleOgsVerify = () => {
+    const username = window.prompt("Enter your OGS Username:");
+    const password = window.prompt("Enter your OGS Password:");
+
+    if (username && password) {
+      // 这里可以替换为真实的验证逻辑
+      alert("OGS Verification Successful!");
+      setIsVerified(true);   // ✅ 解锁 YOU MATCHES 标签
+      setActiveTab('yourMatches'); // ✅ 自动跳转到新标签
+    }
   };
 
 useEffect(() => {
@@ -231,15 +245,19 @@ useEffect(() => {
     <div style={containerStyle}>
       <nav style={navStyle}>
         <div style={{ fontWeight: 'bold', color: '#e61d2b', fontSize: '1.4em' }}>JIAYI GO</div>
-        <div style={{ display: 'flex', gap: '25px' }}>
-          {['events', 'players', 'you', 'admin']
+        <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
+          {['events', 'players', 'you', 'admin', 'yourMatches']        
           .filter(tab => {
     if (tab === 'you') return !!user; 
     if (tab === 'admin') return user?.email === "bjmyschool@gmail.com";
+    if (tab === 'yourMatches') return isVerified; // 只有验证过才在导航栏显示
     return true;
   })
       .map(t => (
-            <span key={t} style={activeTab === t ? activeTabStyle : tabStyle} onClick={() => setActiveTab(t)}>{t.toUpperCase()}</span>
+            <span key={t} style={activeTab === t ? activeTabStyle : tabStyle} 
+            onClick={() => setActiveTab(t)}>
+              {t === 'yourMatches' ? 'YOUR MATCHES' : t.toUpperCase()}
+              </span>
           ))}
 <button 
   style={loginBtnStyle} 
@@ -315,6 +333,8 @@ useEffect(() => {
           </div>
 
             <h3 style={sectionTitleStyle}>HISTORY</h3>
+
+
             <div style={historyCardStyle}>
               <div style={smallRoundBadgeStyle}>Round 1</div>
               <div style={whiteStoneIcon} />
@@ -324,38 +344,70 @@ useEffect(() => {
               <div style={historyTimeStyle}>Mar 30</div>
             </div>
 
-{/* --- 这里是新加入的管理员入口 --- */}
-    {user?.email === "bjmyschool@gmail.com" && (
-      <div style={{ 
-        marginTop: '40px', 
-        padding: '20px', 
-        borderTop: '2px dashed #e2e8f0', 
-        textAlign: 'center' 
-      }}>
-        <p style={{ color: '#64748b', fontSize: '0.9em', marginBottom: '15px' }}>Administrator Access</p>
-        <button 
-          onClick={() => setActiveTab('admin')}
-          style={{
-            backgroundColor: '#1e293b',
-            color: 'white',
-            padding: '12px 24px',
-            borderRadius: '12px',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-          }}
-        >
-          ⚙️ Manage JIAYI Players
-        </button>
-      </div>
-    )}
-    {/* --- 入口结束 --- */}
+{/* --- 💡 从这里开始插入新逻辑，替换掉旧的管理员判断 --- */}
+            <div style={{ 
+              marginTop: '40px', 
+              padding: '20px', 
+              borderTop: '2px dashed #e2e8f0', 
+              textAlign: 'center' 
+            }}>
+              {user?.email === "bjmyschool@gmail.com" ? (
+                <>
+                  <p style={{ color: '#64748b', fontSize: '0.9em', marginBottom: '15px' }}>Administrator Access</p>
+                  <button 
+                    onClick={() => setActiveTab('admin')}
+                    style={{
+                      backgroundColor: '#1e293b',
+                      color: 'white',
+                      padding: '12px 24px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    ⚙️ Manage JIAYI Players
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p style={{ color: '#64748b', fontSize: '0.9em', marginBottom: '15px' }}>Tournament Activity</p>
+                  <button 
+                    onClick={handleOgsVerify} 
+                    style={{
+                      backgroundColor: '#1e293b',
+                      color: 'white',
+                      padding: '12px 24px',
+                      borderRadius: '12px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    🏆 Your Matches
+                  </button>
+                </>
+              )}
+            </div>
+          </div> /* ✅ 闭合 Dashboard 的 div */
+        )} {/* ✅ 闭合 activeTab === 'you' 的逻辑 */}
+{/* --- 💡 插入结束 --- */}
 
+{activeTab === 'yourMatches' && (
+          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
+            <h2>🏆 Your OGS Matches</h2>
+            <p style={{ color: '#64748b' }}>正在获取您的最新对局记录...</p>
+            <button 
+              onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
+              style={{ marginTop: '20px', color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              ← Logout from OGS
+            </button>
           </div>
         )}
-
-      </div>
-    </div>
+      </div> 
+    </div> 
   );
 }
