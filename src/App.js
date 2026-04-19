@@ -2,14 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
-const containerStyle = { width: '100%',
+const containerStyle = { 
+  width: '100%',
   minHeight: '100vh',
-  backgroundImage: "linear-gradient(rgba(5, 55, 20, 0), rgba(255, 255, 255, 0.1)), url('/background.jpg')",
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  backgroundAttachment: 'fixed',
+  color: 'white',
+  position: 'relative', 
+  overflowX: 'hidden', // 防止横向滚动条
+
+  // --- 关键：锁定背景图，不让它乱跑 ---
+  backgroundImage: 'url("/background.jpg")',
+  backgroundSize: 'cover',        // 强制铺满，不留白
+  backgroundPosition: 'center',    // 始终居中
+  backgroundAttachment: 'fixed',   // 滚动时背景保持不动（非常重要！）
   backgroundRepeat: 'no-repeat',
-  color: 'white'};
+  
+  // 确保背景不会被任何 transform 影响
+  transform: 'none' 
+};
 const navStyle = { display: 'flex', justifyContent: 'space-between', padding: '20px 60px', borderBottom: '1px solid #1e293b', alignItems: 'center' };
 const contentStyle = { maxWidth: '1000px', margin: '0 auto', padding: '40px 20px' };
 const headerStyle = { fontSize: '2.2em', fontWeight: 'bold', color: '#1a1a1a', textShadow: '0px 0px 5px rgba(255, 255, 255, 0.8)', marginBottom: '24px' };
@@ -17,7 +26,16 @@ const tabStyle = { color: '#000000', cursor: 'pointer', transition: '0.3s', padd
 const activeTabStyle = { color: '#000000', cursor: 'pointer', borderBottom: '2px solid #e61d2b', paddingBottom: '8px', fontWeight: 'bold' };
 
 const listStyle = { display: 'flex', flexDirection: 'column', gap: '15px' };
-const cardStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1e293b', padding: '16px 24px', borderRadius: '12px', border: '1px solid #334155' };
+const cardStyle = { 
+  display: 'flex', 
+  // 关键 1：改为 column，让图片在上面，文字在下面，这样旋转才好看
+  flexDirection: 'column', 
+  backgroundColor: '#1e293b', 
+  padding: '0', // 把 padding 设为 0，让图片能撑满边框
+  borderRadius: '12px', 
+  border: '1px solid #334155',
+  overflow: 'hidden' // 关键 2：剪掉旋转后多出来的图片边缘
+};
 const infoStyle = { display: 'flex', gap: '24px', alignItems: 'center' };
 const idStyle = { color: '#475569', fontSize: '0.9em' };
 const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
@@ -25,12 +43,38 @@ const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa'
 const ratingStyle = { color: '#94a3b8' };
 const loginBtnStyle = { backgroundColor: '#8b5cf6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
 
+const imgStyle = {
+  width: '100%',
+  height: '100%',
+  // 关键：cover 会自动裁剪多余部分，保证铺满且不留白
+  objectFit: 'cover', 
+  display: 'block',
+  // 暂时移除 rotate，让它按原图方向显示
+  transform: 'none' 
+};
+
+const adminContainerStyle = {
+  backgroundColor: 'rgba(30, 41, 59, 0.7)',
+  padding: '30px',
+  borderRadius: '16px',
+  border: '1px solid #334155',
+  marginTop: '20px'
+};
+
 // ADMIN & YOU 页面专属样式
 const adminFormStyle = { display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #8b5cf6' };
 const inputStyle = { padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', flex: 1 };
 const addBtnStyle = { backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const deleteBtnStyle = { backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8em' };
-
+// 在 App.js 顶部定义样式
+const messageContainerStyle = {
+  backgroundColor: 'white',
+  padding: '12px 15px',
+  borderRadius: '10px',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+  borderLeft: '4px solid #1e293b', // 深色左边条增加质感
+  textAlign: 'left' 
+};
 const sectionTitleStyle = { color: '#64748b', fontSize: '0.85em', fontWeight: '800', marginBottom: '12px', marginTop: '30px' };
 const nextMatchCardStyle = { display: 'flex', alignItems: 'center', backgroundColor: '#e0f2f1', padding: '24px', borderRadius: '12px', border: '1px solid #b2dfdb', position: 'relative' };
 const matchInfoStyle = { flex: 1, display: 'flex', alignItems: 'center', gap: '16px' };
@@ -52,19 +96,13 @@ const historyTimeStyle = { color: '#64748b', fontSize: '0.85em' };
 function EventsPage({ events }) {
 
 const eventCardStyle = {
-    // 1. 核心：从之前的 rgba(30, 39, 56) 调亮到 (50, 60, 80)
-    // 这样它比背景亮，但又不是白色
     backgroundColor: '#323c50', 
-    
     borderRadius: '16px',
-    overflow: 'hidden',
+    overflow: 'hidden', // 👈 必须：剪掉旋转后多出来的图片
     marginBottom: '25px',
     display: 'flex',
     flexDirection: 'column',
-    
-    // 2. 增加一个淡紫色的边框，呼应你的 Logo 颜色，增加呼吸感
     border: '1px solid rgba(157, 125, 250, 0.3)', 
-    
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
     width: '100%',
     maxWidth: '400px',
@@ -97,14 +135,21 @@ const eventCardStyle = {
         {events.map((ev) => (
           <div key={ev.id} style={eventCardStyle}>
             
-            {/* 1. 给图片加上 alt 属性，解决 Line 92 的警告 */}
-            <div style={{ height: '180px', overflow: 'hidden' }}>
-              <img 
-                src="/background1.jpg" 
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                alt={ev.name || "Event thumbnail"} 
-              />
-            </div>
+{/* EventsPage 里的图片部分 */}
+<div style={{ 
+  width: '100%',
+  // 关键：给一个固定高度，或者使用 aspect-ratio: '16/9'
+  height: '200px', 
+  overflow: 'hidden',
+  borderRadius: '12px 12px 0 0', // 只给上方圆角
+  backgroundColor: '#1e293b' // 失败时的底色
+}}>
+  <img 
+    src="/background1.jpg" 
+    alt={ev.name} 
+    style={imgStyle} 
+  />
+</div>
 
             {/* 2. ✅ 使用 infoBoxStyle 包装文字，解决 Line 80 的警告 */}
             <div style={infoBoxStyle}>
@@ -172,6 +217,16 @@ export default function App() {
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
+
+  // 1. 用来存储所有的留言列表
+const [messages, setMessages] = useState([
+  { id: 1, user: "Ronnie (Admin)", text: "Welcome to the new Jiayi Go message board!", time: "19:00" },
+  { id: 2, user: "Guest Player", text: "Anyone up for a game later tonight?", time: "19:05" }
+]);
+
+// 2. 用来记录当前输入框里的文字
+const [inputText, setInputText] = useState("");
+
 
   const fetchData = async () => {
     const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
@@ -241,30 +296,54 @@ useEffect(() => {
     }
   }, []);
 
-  return (
+return (
     <div style={containerStyle}>
+      {/* --- 1. 新增：注入旋转背景的 CSS --- */}
+      <style>
+        {`
+          .bg-rotator {
+            content: "";
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 200vmax; /* 设大一点，确保 360 度覆盖 */
+          height: 200vmax;
+          background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('/background.jpg');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          z-index: -1;
+          transform: translate(-50%, -50%) rotate(90deg); /* 先居中再旋转 */
+          }
+        `}
+      </style>
+
+      {/* --- 2. 新增：专用的背景节点 --- */}
+      <div className="bg-rotator"></div>
+
+      {/* --- 3. 以下是你原本的结构，保持不变 --- */}
       <nav style={navStyle}>
         <div style={{ fontWeight: 'bold', color: '#e61d2b', fontSize: '1.4em' }}>JIAYI GO</div>
         <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
-          {['events', 'players', 'you', 'admin', 'yourMatches']        
-          .filter(tab => {
-    if (tab === 'you') return !!user; 
-    if (tab === 'admin') return user?.email === "bjmyschool@gmail.com";
-    if (tab === 'yourMatches') return isVerified; // 只有验证过才在导航栏显示
-    return true;
-  })
-      .map(t => (
-            <span key={t} style={activeTab === t ? activeTabStyle : tabStyle} 
-            onClick={() => setActiveTab(t)}>
-              {t === 'yourMatches' ? 'YOUR MATCHES' : t.toUpperCase()}
+          {['events', 'players', 'you', 'admin', 'yourMatches']
+            .filter(tab => {
+              if (tab === 'you') return !!user;
+              if (tab === 'admin') return user?.email === "bjmyschool@gmail.com";
+              if (tab === 'yourMatches') return isVerified;
+              return true;
+            })
+            .map(t => (
+              <span key={t} style={activeTab === t ? activeTabStyle : tabStyle}
+                onClick={() => setActiveTab(t)}>
+                {t === 'yourMatches' ? 'YOUR MATCHES' : t.toUpperCase()}
               </span>
-          ))}
-<button 
-  style={loginBtnStyle} 
-  onClick={user ? handleLogout : handleLogin}
->
-  {user ? 'SIGN OUT' : 'SIGN IN'}
-</button>
+            ))}
+          <button
+            style={loginBtnStyle}
+            onClick={user ? handleLogout : handleLogin}
+          >
+            {user ? 'SIGN OUT' : 'SIGN IN'}
+          </button>
         </div>
       </nav>
     
@@ -291,123 +370,179 @@ useEffect(() => {
         )}
 
 {activeTab === 'admin' && (
-  user?.email === "bjmyschool@gmail.com" ? (
-    <AdminPlayersPage players={players} fetchPlayers={fetchData} />
-  ) : (
-    <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
-      <h2 style={{ color: '#e61d2b' }}>🔒 Access Denied</h2>
-      <p>仅限管理员 <b>bjmyschool@gmail.com</b> 访问。</p>
-      <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#64748b', borderTop: '1px dotted #ccc', paddingTop: '20px' }}>
-        {user ? (
-          <p>当前登录账号: {user.email} <br /> (请使用管理员账号重新登录)</p>
-        ) : (
-          <p>您当前未登录，请先点击右上角 <b>SIGN IN</b></p>
-        )}
+  /* 1. 外层增加这个 div 并应用你定义的 adminContainerStyle */
+  <div style={adminContainerStyle}>
+    {user?.email === "bjmyschool@gmail.com" ? (
+      <AdminPlayersPage players={players} fetchPlayers={fetchData} />
+    ) : (
+      <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
+        <h2 style={{ color: '#e61d2b' }}>🔒 Access Denied</h2>
+        <p>仅限管理员 <b>bjmyschool@gmail.com</b> 访问。</p>
+        <div style={{ marginTop: '20px', fontSize: '0.9em', color: '#64748b', borderTop: '1px dotted #ccc', paddingTop: '20px' }}>
+          {user ? (
+            <p>当前登录账号: {user.email} <br /> (请使用管理员账号重新登录)</p>
+          ) : (
+            <p>您当前未登录，请先点击右上角 <b>SIGN IN</b></p>
+          )}
+        </div>
       </div>
-    </div>
-  )
+    )}
+  </div>
 )}
 
         {activeTab === 'you' && (
           <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
-            <h2>User Dashboard</h2>
+            <h2 style={{ ...headerStyle, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+      💬 Community Message Board
+    </h2>
             
+{/* --- 1. 留言显示区 --- */}
+<div style={{ 
+  height: '300px', 
+  overflowY: 'auto', 
+  marginBottom: '20px', 
+  padding: '20px', 
+  backgroundColor: '#f1f5f9', 
+  borderRadius: '12px',
+  border: '1px solid #e2e8f0',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '15px'
+}}>
+  {/* ✨ 这一步最关键：让 React 根据 messages 数组的内容自动画出留言条 */}
+  {messages.map((msg) => (
+    <div key={msg.id} style={messageContainerStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user}</span>
+        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.time}</span>
+      </div>
+      <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>
+        {msg.text}
+      </p>
+    </div>
+  ))}
+</div>
+
+    {/* --- 2. 留言输入区 --- */}
+    <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+      <input 
+        type="text" 
+value={inputText} // ✨ 绑定文字
+    onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
+    placeholder="Type your message..." 
+    style={{ 
+      flex: 1, 
+      padding: '12px 16px', 
+      borderRadius: '10px', 
+      border: '2px solid #e2e8f0',
+      outline: 'none',
+      fontSize: '0.95em'
+    }}
+  />
+  <button 
+    onClick={() => {
+      if (inputText.trim() !== "") {
+        // ✨ 点击时，把新留言加到列表顶部
+        const newMessage = {
+          id: Date.now(),
+          user: "Me", 
+          text: inputText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages([newMessage, ...messages]); 
+        setInputText(""); // ✨ 清空输入框
+      }
+    }}
+      
+      style={{ 
+        backgroundColor: '#1e293b', 
+        color: 'white', 
+        padding: '0 25px', 
+        borderRadius: '10px', 
+        border: 'none',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        transition: 'background 0.2s'
+      }}>
+        Send
+      </button>
+    </div>
+
+    {/* --- 3. 底部 OGS 登录入口 (变轻量了) --- */}
+    <div style={{ 
+      paddingTop: '20px', 
+      borderTop: '2px dashed #f1f5f9', 
+      textAlign: 'center' 
+    }}>
+      <p style={{ color: '#94a3b8', fontSize: '0.85em', marginBottom: '12px' }}>
+        Looking for your tournament records?
+      </p>
+      <button 
+        onClick={handleOgsVerify} 
+        style={{
+          backgroundColor: 'transparent',
+          color: '#64748b',
+          padding: '8px 20px',
+          borderRadius: '20px',
+          border: '1px solid #e2e8f0',
+          cursor: 'pointer',
+          fontSize: '0.85em',
+          fontWeight: '600'
+        }}
+      >
+        🏆 Link OGS Account
+      </button>
+            </div>
+          </div> /* ✅ 闭合 Dashboard 的内层 div */
+        )} {/* ✅ 闭合 activeTab === 'you' 的逻辑 */}
+
+        {/* --- YOUR MATCHES 页面内容 --- */}
+        {activeTab === 'yourMatches' && (
+          <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
+            <h1 style={headerStyle}>🏆 Your Matches</h1>
+
             <h3 style={sectionTitleStyle}>NEXT MATCH</h3>
             <div style={nextMatchCardStyle}>
-              <div style={roundBadgeStyle}>Round 1</div>
+              <div style={roundBadgeStyle}>Round 2</div>
               <div style={matchInfoStyle}>
                 <div style={blackStoneIcon} />
                 <div style={playerNameStyle}>张三 <span style={rankPillStyle}>17k</span></div>
-            </div>
+              </div>
               <div style={matchTimeStyle}>
                 <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
-               <a 
-               href="https://online-go.com/play" 
-               target="_blank" 
-               rel="noreferrer" 
-               style={{...playBtnStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center'}}
-               >
-               ✅ Let's Play!
-               </a>
+                <a 
+                  href="https://online-go.com/play" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  style={{...playBtnStyle, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginTop: '8px'}}
+                >
+                  ✅ Let's Play!
+                </a>
               </div>
-          </div>
+            </div>
 
             <h3 style={sectionTitleStyle}>HISTORY</h3>
-
-
             <div style={historyCardStyle}>
               <div style={smallRoundBadgeStyle}>Round 1</div>
               <div style={whiteStoneIcon} />
               <div style={{ flex: 1, marginLeft: '15px', color: '#333' }}>
-                <strong>Greg HENDRICKS</strong> <span style={noResultBadgeStyle}>No Result</span>
+                <strong>Greg</strong> <span style={noResultBadgeStyle}>No Result</span>
               </div>
-              <div style={historyTimeStyle}>Mar 30</div>
+              <div style={historyTimeStyle}>Apr 9</div>
             </div>
 
-{/* --- 💡 从这里开始插入新逻辑，替换掉旧的管理员判断 --- */}
-            <div style={{ 
-              marginTop: '40px', 
-              padding: '20px', 
-              borderTop: '2px dashed #e2e8f0', 
-              textAlign: 'center' 
-            }}>
-              {user?.email === "bjmyschool@gmail.com" ? (
-                <>
-                  <p style={{ color: '#64748b', fontSize: '0.9em', marginBottom: '15px' }}>Administrator Access</p>
-                  <button 
-                    onClick={() => setActiveTab('admin')}
-                    style={{
-                      backgroundColor: '#1e293b',
-                      color: 'white',
-                      padding: '12px 24px',
-                      borderRadius: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                  >
-                    ⚙️ Manage JIAYI Players
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p style={{ color: '#64748b', fontSize: '0.9em', marginBottom: '15px' }}>Tournament Activity</p>
-                  <button 
-                    onClick={handleOgsVerify} 
-                    style={{
-                      backgroundColor: '#1e293b',
-                      color: 'white',
-                      padding: '12px 24px',
-                      borderRadius: '12px',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                  >
-                    🏆 Your Matches
-                  </button>
-                </>
-              )}
+            <div style={{ marginTop: '40px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+              <button 
+                onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
+                style={{ color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em' }}
+              >
+                ← Logout from OGS
+              </button>
             </div>
-          </div> /* ✅ 闭合 Dashboard 的 div */
-        )} {/* ✅ 闭合 activeTab === 'you' 的逻辑 */}
-{/* --- 💡 插入结束 --- */}
-
-{activeTab === 'yourMatches' && (
-          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
-            <h2>🏆 Your OGS Matches</h2>
-            <p style={{ color: '#64748b' }}>正在获取您的最新对局记录...</p>
-            <button 
-              onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
-              style={{ marginTop: '20px', color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              ← Logout from OGS
-            </button>
           </div>
         )}
-      </div> 
-    </div> 
+      </div> {/* ✅ 闭合 contentStyle 的 div */}
+    </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
+
