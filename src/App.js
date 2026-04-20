@@ -219,21 +219,32 @@ export default function App() {
   const [user, setUser] = useState(null);
 
   // 1. 用来存储所有的留言列表
-const [messages, setMessages] = useState([
-  { id: 1, user: "Ronnie (Admin)", text: "Welcome to the new Jiayi Go message board!", time: "19:00" },
-  { id: 2, user: "Guest Player", text: "Anyone up for a game later tonight?", time: "19:05" }
-]);
+const [messages, setMessages] = useState([]);
 
 // 2. 用来记录当前输入框里的文字
 const [inputText, setInputText] = useState("");
 
 
-  const fetchData = async () => {
+const fetchData = async () => {
+    // 读取玩家和赛事
     const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
     const { data: e } = await supabase.from('events').select('*');
     
+    // ✨ 新增：从数据库读取留言
+    const { data: m } = await supabase.from('messages').select('*').order('created_at', { ascending: false });
+    
     if (p) setPlayers(p);
     if (e) setEvents(e);
+    // ✨ 格式化留言并存入状态
+    if (m) {
+      const formatted = m.map(msg => ({
+        id: msg.id,
+        user: msg.user_name || 'Guest', // 对应数据库的 user_name
+        text: msg.content,           // ✨ 注意：数据库里叫 content，前端显示叫 text
+        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }));
+      setMessages(formatted);
+    }
   };
 
 const handleLogin = async () => {
@@ -276,25 +287,49 @@ const handleLogout = async () => {
   };
 
 useEffect(() => {
-    if (supabase && supabase.auth) {
-      // 1. 页面刚刷新时：立刻检查一次缓存里有没有用户信息
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        console.log("Initial Session:", session?.user?.email || "No user");
-        setUser(session?.user ?? null);
-      });
+  if (supabase && supabase.auth) {
+    // 1. 检查登录状态
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial Session:", session?.user?.email || "No user");
+      setUser(session?.user ?? null);
+    });
 
-      // 2. 状态监听：当从 Google 登录成功跳转回来时，这部分代码会自动触发
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        console.log("Auth Event:", _event, session?.user?.email);
-        setUser(session?.user ?? null);
-      });
+    // 2. 监听登录状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("Auth Event:", _event, session?.user?.email);
+      setUser(session?.user ?? null);
+    });
 
-      fetchData();
-      return () => {
-        if (subscription) subscription.unsubscribe();
-      };
-    }
-  }, []);
+    // 3. 加载初始数据 (包括你刚才修改后的留言列表)
+    fetchData();
+
+    // ✨ 4. 新增：开启实时留言监听
+    // 只要有人往数据库发消息，这里就会自动触发，无需刷新页面
+    const channel = supabase
+      .channel('realtime_messages')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'messages' }, 
+        (payload) => {
+          // 将数据库传回的新数据转换成你 UI 需要的格式
+          const newMessage = {
+            id: payload.new.id,
+            user: payload.new.user_name,
+            text: payload.new.content,
+            time: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          };
+          // 把新消息塞进列表最前面
+          setMessages(prev => [newMessage, ...prev]);
+        }
+      )
+      .subscribe();
+
+    // 5. 清理工作：当组件销毁时，取消监听
+    return () => {
+      if (subscription) subscription.unsubscribe();
+      supabase.removeChannel(channel); 
+    };
+  }
+}, []); // 保持数组为空，确保只在页面加载时运行一次
 
 return (
     <div style={containerStyle}>
@@ -440,19 +475,24 @@ value={inputText} // ✨ 绑定文字
     }}
   />
   <button 
-    onClick={() => {
-      if (inputText.trim() !== "") {
-        // ✨ 点击时，把新留言加到列表顶部
-        const newMessage = {
-          id: Date.now(),
-          user: "Me", 
-          text: inputText,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages([newMessage, ...messages]); 
-        setInputText(""); // ✨ 清空输入框
-      }
-    }}
+   // 替换为调用一个异步函数
+onClick={async () => {
+  if (inputText.trim() === "") return;
+
+  // ✨ 真正存入 Supabase 数据库
+  const { error } = await supabase
+    .from('messages')
+    .insert([{ 
+      user_name: 'Me', // 这里可以先写死，以后接入登录系统
+      content: inputText 
+    }]);
+
+  if (!error) {
+    setInputText(""); // 发送成功后只负责清空输入框
+  } else {
+    console.error("发送失败:", error.message);
+  }
+}}
       
       style={{ 
         backgroundColor: '#1e293b', 
