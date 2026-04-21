@@ -275,7 +275,7 @@ const handleSendMessage = async (e) => {
 
     console.log("✅ 发送成功！");
     setInputText(""); // 清空输入框
-    fetchData();      // 刷新消息列表，显示新消息
+    await fetchData();      // 刷新消息列表，显示新消息
   } catch (error) {
     console.error("❌ 发送失败:", error.message);
     alert("发送失败: " + error.message);
