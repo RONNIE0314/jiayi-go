@@ -43,6 +43,16 @@ const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa'
 const ratingStyle = { color: '#94a3b8' };
 const loginBtnStyle = { backgroundColor: '#8b5cf6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
 
+const imgStyle = {
+  width: '100%',
+  height: '100%',
+  // 关键：cover 会自动裁剪多余部分，保证铺满且不留白
+  objectFit: 'cover', 
+  display: 'block',
+  // 暂时移除 rotate，让它按原图方向显示
+  transform: 'none' 
+};
+
 const adminContainerStyle = {
   backgroundColor: 'rgba(30, 41, 59, 0.7)',
   padding: '30px',
@@ -82,126 +92,80 @@ const historyTimeStyle = { color: '#64748b', fontSize: '0.85em' };
 
 // --- 2. 页面子组件 ---
 
-function EventsPage({ events, onSelect }) {
-  // 1. 这里的变量现在被下方的 button 引用了
-  const eventCardStyle = {
-    width: '280px',
-    height: '80px',
+// 活动页
+function EventsPage({ events }) {
+
+const eventCardStyle = {
+    backgroundColor: '#323c50', 
+    borderRadius: '16px',
+    overflow: 'hidden', // 👈 必须：剪掉旋转后多出来的图片
+    marginBottom: '25px',
     display: 'flex',
-    alignItems: 'center',
-    backgroundColor: '#1e293b',
-    borderRadius: '12px',
-    border: '1px solid #334155',
-    overflow: 'hidden',
-    cursor: 'pointer',
-    padding: '0',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-    transition: 'transform 0.2s, background-color 0.2s',
+    flexDirection: 'column',
+    border: '1px solid rgba(157, 125, 250, 0.3)', 
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
+    width: '100%',
+    maxWidth: '400px',
+    transition: 'transform 0.2s'
   };
 
+  // 文字颜色建议
   const titleStyle = {
-    fontWeight: 'bold',
-    fontSize: '0.9em',
-    marginBottom: '4px',
-    color: 'white'
+    margin: '0 0 10px 0', 
+    color: '#ffffff', // 标题依然用纯白，最清晰
+    fontSize: '1.4rem', 
+    fontWeight: 'bold'
   };
 
   const textStyle = {
-    fontSize: '0.7em',
-    color: '#94a3b8'
+    color: '#d1d1d1', // 正文用浅灰色，看起来不累眼
+    fontSize: '0.95rem', 
+    marginBottom: '5px'
   };
 
-  // 如果 imgStyle 定义在 App.js 顶部，确保这里也用到了它
-  const localImgStyle = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover'
+  const infoBoxStyle = {
+    padding: '20px',
+    textAlign: 'left'
   };
 
   return (
-    <div style={{ padding: '0 20px' }}>
-      <h1 style={{ color: 'white', fontSize: '2em', fontWeight: 'bold', marginBottom: '24px' }}>
-        Upcoming Events
-      </h1>
-      
-      <div style={{ width: '800px', display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+    <div style={listStyle}>
+      <h1 style={headerStyle}>Upcoming Events</h1>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '25px', justifyContent: 'flex-start' }}>
         {events.map((ev) => (
-          <button 
-            key={ev.id}
-            /* --- 核心修改：把 alert 删掉，换成 onSelect --- */
-            onClick={() => onSelect(ev)} 
-            /* ------------------------------------------ */
-            style={eventCardStyle}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#334155'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1e293b'}
-          >
-            <div style={{ width: '100px', height: '100%', flexShrink: 0, overflow: 'hidden' }}>
-              <img 
-                src="/background1.jpg" 
-                alt="event" 
-                style={localImgStyle}
-              />
+          <div key={ev.id} style={eventCardStyle}>
+            
+{/* EventsPage 里的图片部分 */}
+<div style={{ 
+  width: '100%',
+  // 关键：给一个固定高度，或者使用 aspect-ratio: '16/9'
+  height: '200px', 
+  overflow: 'hidden',
+  borderRadius: '12px 12px 0 0', // 只给上方圆角
+  backgroundColor: '#1e293b' // 失败时的底色
+}}>
+  <img 
+    src="/background1.jpg" 
+    alt={ev.name} 
+    style={imgStyle} 
+  />
+</div>
+
+            {/* 2. ✅ 使用 infoBoxStyle 包装文字，解决 Line 80 的警告 */}
+            <div style={infoBoxStyle}>
+              <h3 style={titleStyle}>{ev.name}</h3>
+              <div style={textStyle}>📅 {ev.date}</div>
+              <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
             </div>
 
-            <div style={{ padding: '0 15px', textAlign: 'left' }}>
-              <div style={titleStyle}>The first P.E.I. LOBSTER Online Go</div>
-              <div style={textStyle}>📍 PEI | 📅 2026/05/10</div>
-            </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>
   );
 }
 
-
 // 管理后台页
-
-function EventDetailPage({ event, onBack }) {
-  return (
-    <div style={{ padding: '10px 20px', color: 'white', maxWidth: '600px', margin: '0 auto' }}>
-      <button onClick={onBack} style={{ backgroundColor: 'transparent', border: '1px solid #8b5cf6', color: '#8b5cf6', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', marginBottom: '20px' }}>
-        ← Back to Events
-      </button>
-
-      <div style={{ backgroundColor: '#1e293b', borderRadius: '20px', border: '1px solid #334155', overflow: 'hidden', boxShadow: '0 15px 35px rgba(0,0,0,0.5)' }}>
-        <div style={{ height: '160px', width: '100%' }}>
-          <img src="/background1.jpg" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="banner" />
-        </div>
-
-        <div style={{ padding: '25px' }}>
-          <h2 style={{ margin: '0 0 10px 0', fontSize: '1.6rem' }}>{event.name || "Confederation Bridge Tour"}</h2>
-          <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginBottom: '20px' }}>📍 Location: Stratford, PEI</p>
-
-          {/* 📢 公告栏 (Notice Board) */}
-          <div style={{ 
-            backgroundColor: '#0f172a', padding: '15px 20px', borderRadius: '12px', 
-            borderLeft: '5px solid #8b5cf6', marginBottom: '25px', textAlign: 'left'
-          }}>
-            <h4 style={{ color: '#8b5cf6', margin: '0 0 10px 0' }}>📢 Notice Board</h4>
-            <ul style={{ color: '#cbd5e1', fontSize: '0.85rem', paddingLeft: '18px', lineHeight: '1.6', margin: 0 }}>
-              <li>Registration deadline: April 30th, 2026.</li>
-              <li>Please bring your own Go board and stones.</li>
-              <li>Free parking available at the venue.</li>
-            </ul>
-          </div>
-
-          {/* ✅ Register 按钮 */}
-          <button 
-            onClick={() => alert("Registration Received!")}
-            style={{ 
-              width: '100%', backgroundColor: '#22c55e', color: 'white', border: 'none', 
-              padding: '14px', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer'
-            }}
-          >
-            Register Now
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AdminPlayersPage({ players, fetchPlayers }) {
   const [newPlayer, setNewPlayer] = useState({ name: '', rank: '', rating: '' });
 
@@ -252,36 +216,53 @@ export default function App() {
   const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  
   const [user, setUser] = useState(null);
 
   // 1. 用来存储所有的留言列表
-const [messages, setMessages] = useState([]);
+const [messages, setMessages] = useState([
+  { id: 1, user: "Ronnie (Admin)", text: "Welcome to the new Jiayi Go message board!", time: "19:00" },
+  { id: 2, user: "Guest Player", text: "Anyone up for a game later tonight?", time: "19:05" }
+]);
 
 // 2. 用来记录当前输入框里的文字
 const [inputText, setInputText] = useState("");
 
-
-const fetchData = async () => {
-    // 读取玩家和赛事
+  const fetchData = async () => {
     const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
     const { data: e } = await supabase.from('events').select('*');
     
-    // ✨ 新增：从数据库读取留言
-    const { data: m } = await supabase.from('messages').select('*').order('created_at', { ascending: false });
-    
     if (p) setPlayers(p);
     if (e) setEvents(e);
-    // ✨ 格式化留言并存入状态
-    if (m) {
-      const formatted = m.map(msg => ({
-        id: msg.id,
-        user: msg.user_name || 'Guest', // 对应数据库的 user_name
-        text: msg.content,           // ✨ 注意：数据库里叫 content，前端显示叫 text
-        time: new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }));
-      setMessages(formatted);
+  };
+
+const handleSendMessage = async (e) => {
+    e.preventDefault(); // 防止网页刷新
+    if (!inputText.trim() || !user) return; // 没输入内容或没登录，直接返回
+
+    console.log("🚀 尝试发送消息...");
+
+    try {
+      // 注意：这里的字段名必须和你的 Supabase messages 表列名完全一致
+      const { error } = await supabase
+        .from('messages')
+        .insert([
+          { 
+            content: inputText,       // 这里的 'content' 必须对应数据库的列名
+            user_name: user.email   // 这里的 'user_name' 必须对应数据库的列名
+          }
+        ]);
+
+      if (error) throw error;
+
+      setInputText(""); // 发送成功后清空输入框
+      console.log("✅ 发送成功！");
+      
+      // 如果你没写实时监听，这里手动调用一下 fetchData 刷新列表
+      fetchData(); 
+
+    } catch (error) {
+      console.error("❌ 发送失败:", error.message);
+      alert("发送失败: " + error.message);
     }
   };
 
@@ -324,72 +305,26 @@ const handleLogout = async () => {
     }
   };
 
-  const handleSendMessage = async () => {
-  if (!inputText.trim() || !user) return;
-
-  // 获取用户名字
-  const displayName = user.user_metadata?.full_name || user.email.split('@')[0] || 'Guest';
-
-  const { error } = await supabase
-    .from('messages')
-    .insert([
-      { 
-        content: inputText, 
-        user_name: displayName, 
-        user_id: user.id 
-      }
-    ]);
-
-  if (!error) setInputText(""); 
-};
-
-// --- 处理 OGS 验证 ---
-
-
 useEffect(() => {
-  if (supabase && supabase.auth) {
-    // 1. 检查登录状态
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Initial Session:", session?.user?.email || "No user");
-      setUser(session?.user ?? null);
-    });
+    if (supabase && supabase.auth) {
+      // 1. 页面刚刷新时：立刻检查一次缓存里有没有用户信息
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        console.log("Initial Session:", session?.user?.email || "No user");
+        setUser(session?.user ?? null);
+      });
 
-    // 2. 监听登录状态变化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log("Auth Event:", _event, session?.user?.email);
-      setUser(session?.user ?? null);
-    });
+      // 2. 状态监听：当从 Google 登录成功跳转回来时，这部分代码会自动触发
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        console.log("Auth Event:", _event, session?.user?.email);
+        setUser(session?.user ?? null);
+      });
 
-    // 3. 加载初始数据 (包括你刚才修改后的留言列表)
-    fetchData();
-
-    // ✨ 4. 新增：开启实时留言监听
-    // 只要有人往数据库发消息，这里就会自动触发，无需刷新页面
-    const channel = supabase
-      .channel('realtime_messages')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'messages' }, 
-        (payload) => {
-          // 将数据库传回的新数据转换成你 UI 需要的格式
-          const newMessage = {
-            id: payload.new.id,
-            user: payload.new.user_name,
-            text: payload.new.content,
-            time: new Date(payload.new.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          };
-          // 把新消息塞进列表最前面
-          setMessages(prev => [newMessage, ...prev]);
-        }
-      )
-      .subscribe();
-
-    // 5. 清理工作：当组件销毁时，取消监听
-    return () => {
-      if (subscription) subscription.unsubscribe();
-      supabase.removeChannel(channel); 
-    };
-  }
-}, []); // 保持数组为空，确保只在页面加载时运行一次
+      fetchData();
+      return () => {
+        if (subscription) subscription.unsubscribe();
+      };
+    }
+  }, []);
 
 return (
     <div style={containerStyle}>
@@ -444,15 +379,7 @@ return (
     
 
       <div style={contentStyle}>
-        {activeTab === 'events' && (
-    !selectedEvent ? (
-      // 如果没有选中的活动，显示列表（那个 280x80 的按钮）
-      <EventsPage events={events} onSelect={(ev) => setSelectedEvent(ev)} />
-    ) : (
-      // 如果有选中的活动，显示你要求的“公告栏 + Register”页面
-      <EventDetailPage event={selectedEvent} onBack={() => setSelectedEvent(null)} />
-    )
-  )}
+        {activeTab === 'events' && <EventsPage events={events} />}
 
         {activeTab === 'players' && (
           <div style={listStyle}>
@@ -496,12 +423,12 @@ return (
         {activeTab === 'you' && (
           <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
             <h2 style={{ ...headerStyle, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-      💬 Communication
+      💬 Community Message Board
     </h2>
             
 {/* --- 1. 留言显示区 --- */}
 <div style={{ 
-  height: '200px', 
+  height: '300px', 
   overflowY: 'auto', 
   marginBottom: '20px', 
   padding: '20px', 
@@ -530,10 +457,10 @@ return (
     <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
       <input 
         type="text" 
-value={inputText} // ✨ 绑定文字
-    onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
-    placeholder="Type your message..." 
-    style={{ 
+        value={inputText} // ✨ 绑定文字
+        onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
+        placeholder="Type your message..." 
+        style={{ 
       flex: 1, 
       padding: '12px 16px', 
       borderRadius: '10px', 
@@ -543,24 +470,49 @@ value={inputText} // ✨ 绑定文字
     }}
   />
 
-{/* 👇 在这里贴入你的代码 */}
-      <button 
-        onClick={handleSendMessage} 
-        style={{ 
-          backgroundColor: '#1e293b', 
-          color: 'white', 
-          padding: '0 25px', 
-          borderRadius: '10px', 
-          border: 'none',
-          cursor: 'pointer',
-          fontWeight: 'bold'
-        }}
-      >
+<button 
+    onClick={handleSendMessage} 
+    style={{ 
+      padding: '10px 20px', 
+      backgroundColor: '#1e293b', 
+      color: 'white', 
+      borderRadius: '8px',
+      cursor: 'pointer',
+      fontWeight: 'bold'
+    }}
+  >
+    Send
+  </button>
+
+  <button 
+    onClick={() => {
+      if (inputText.trim() !== "") {
+        // ✨ 点击时，把新留言加到列表顶部
+        const newMessage = {
+          id: Date.now(),
+          user: "Me", 
+          text: inputText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages([newMessage, ...messages]); 
+        setInputText(""); // ✨ 清空输入框
+      }
+    }}
+      
+      style={{ 
+        backgroundColor: '#1e293b', 
+        color: 'white', 
+        padding: '0 25px', 
+        borderRadius: '10px', 
+        border: 'none',
+        cursor: 'pointer',
+        fontWeight: 'bold',
+        transition: 'background 0.2s'
+      }}>
         Send
       </button>
     </div>
-  
- 
+
     {/* --- 3. 底部 OGS 登录入口 (变轻量了) --- */}
     <div style={{ 
       paddingTop: '20px', 
@@ -638,4 +590,5 @@ value={inputText} // ✨ 绑定文字
     </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
+
 
