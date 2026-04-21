@@ -212,117 +212,126 @@ function AdminPlayersPage({ players, fetchPlayers }) {
 
 // --- 3. 主 App 组件 ---
 export default function App() {
+  // 1. 状态定义区 (确保顺序正确，先定义再使用)
   const [activeTab, setActiveTab] = useState('events');
   const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
+  
+  // 留言状态：包含默认欢迎词和输入框文字
+  const [inputText, setInputText] = useState(""); 
+  const [messages, setMessages] = useState([
+    { id: 1, user_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
+    { id: 2, user_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
+  ]);
 
-  // 1. 用来存储所有的留言列表
-const [messages, setMessages] = useState([
-  { id: 1, user: "Ronnie (Admin)", text: "Welcome to the new Jiayi Go message board!", time: "19:00" },
-  { id: 2, user: "Guest Player", text: "Anyone up for a game later tonight?", time: "19:05" }
-]);
-
-// 2. 用来记录当前输入框里的文字
-const [inputText, setInputText] = useState("");
-
+  // 2. 统一数据获取函数 (抓取玩家、活动、留言)
   const fetchData = async () => {
-    const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
-    const { data: e } = await supabase.from('events').select('*');
-    
-    if (p) setPlayers(p);
-    if (e) setEvents(e);
+    try {
+      // 同时获取三项数据
+      const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
+      const { data: e } = await supabase.from('events').select('*');
+      const { data: m, error: mError } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: true });
+
+      if (mError) throw mError;
+
+      if (p) setPlayers(p);
+      if (e) setEvents(e);
+      // 如果数据库有留言，则覆盖默认显示的留言
+      if (m && m.length > 0) setMessages(m); 
+
+    } catch (error) {
+      console.error("❌ 数据获取失败:", error.message);
+    }
   };
 
-const handleLogin = async () => {
+  // 3. 登录/登出逻辑
+  const handleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // 自动获取域名，适配 localhost 或线上环境
           redirectTo: window.location.origin,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        }, // 👈 这一行后面是逗号，闭合的是 options
-      }); // 👈 这一行是圆括号 + 分号，闭合的是整个 signInWithOAuth
-
+          queryParams: { access_type: 'offline', prompt: 'consent' },
+        },
+      });
       if (error) throw error;
     } catch (error) {
       console.error("登录出错:", error.message);
     }
   };
 
-
-const handleSendMessage = async (e) => {
-  if (e) e.preventDefault(); // 防止页面刷新
-  if (!inputText.trim() || !user) return; // 确保输入不为空且用户已登录
-
-  try {
-    const { error } = await supabase
-      .from('messages')
-      .insert([
-        { 
-          content: inputText,        // 对应数据库中的 content 列
-          user_name: user.email,     // 对应数据库中的 user_name 列
-          user_id: user.id           // ✨ 确保这一行已经加上，且名字与 Supabase 中的列名一致
-        }
-      ]);
-
-    if (error) throw error;
-
-    console.log("✅ 发送成功！");
-    setInputText(""); // 清空输入框
-    await fetchData();      // 刷新消息列表，显示新消息
-  } catch (error) {
-    console.error("❌ 发送失败:", error.message);
-    alert("发送失败: " + error.message);
-  }
-};
-
-
-
-const handleLogout = async () => {
+  const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setIsVerified(false); // ✅ 退出登录时，同时也重置 OGS 验证状态
+    setIsVerified(false);
   };
 
-  // --- 处理 OGS 验证 (非管理员点击按钮触发) ---
+  // 4. 发送留言逻辑 (存入数据库 + 自动刷新网页)
+  const handleSendMessage = async (e) => {
+    if (e) e.preventDefault();
+    if (!inputText.trim() || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert([
+          { 
+            content: inputText,
+            user_name: user.email,
+            user_id: user.id
+          }
+        ]);
+
+      if (error) throw error;
+
+      console.log("✅ 发送成功！");
+      setInputText(""); // 清空输入框
+      await fetchData(); // ✨ 刷新列表
+    } catch (error) {
+      console.error("❌ 发送失败:", error.message);
+      alert("发送失败: " + error.message);
+    }
+  };
+
+  // 5. OGS 验证逻辑
   const handleOgsVerify = () => {
     const username = window.prompt("Enter your OGS Username:");
     const password = window.prompt("Enter your OGS Password:");
 
     if (username && password) {
-      // 这里可以替换为真实的验证逻辑
       alert("OGS Verification Successful!");
-      setIsVerified(true);   // ✅ 解锁 YOU MATCHES 标签
-      setActiveTab('yourMatches'); // ✅ 自动跳转到新标签
+      setIsVerified(true);
+      setActiveTab('yourMatches'); 
     }
   };
 
-useEffect(() => {
+  // 6. 生命周期监听 (初始化)
+  useEffect(() => {
     if (supabase && supabase.auth) {
-      // 1. 页面刚刷新时：立刻检查一次缓存里有没有用户信息
+      // 检查当前登录状态
       supabase.auth.getSession().then(({ data: { session } }) => {
-        console.log("Initial Session:", session?.user?.email || "No user");
         setUser(session?.user ?? null);
       });
 
-      // 2. 状态监听：当从 Google 登录成功跳转回来时，这部分代码会自动触发
+      // 监听状态变化
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        console.log("Auth Event:", _event, session?.user?.email);
         setUser(session?.user ?? null);
       });
 
       fetchData();
+
       return () => {
         if (subscription) subscription.unsubscribe();
       };
     }
   }, []);
+
+  // --- 后面接你的 return (JSX) 即可 ---
 
 return (
     <div style={containerStyle}>
@@ -441,22 +450,22 @@ return (
   {messages.map((msg) => (
     <div key={msg.id} style={messageContainerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user}</span>
-        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.time}</span>
+        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user_name || msg.user}</span>
+        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
       </div>
       <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>
-        {msg.text}
+        {msg.content || msg.text}
       </p>
     </div>
   ))}
 </div>
 
-    {/* --- 2. 留言输入区 --- */}
-    <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-      <input 
-        type="text" 
-value={inputText} // ✨ 绑定文字
-    onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
+   {/* --- 2. 留言输入区 --- */}
+<div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+  <input 
+    type="text" 
+    value={inputText} 
+    onChange={(e) => setInputText(e.target.value)} 
     placeholder="Type your message..." 
     style={{ 
       flex: 1, 
@@ -468,41 +477,23 @@ value={inputText} // ✨ 绑定文字
     }}
   />
 
-<button 
-  className="send-button" 
-  onClick={handleSendMessage} // ✨ 必须加上这一行，函数才会运行
->
-  Send
-</button>
-
+  {/* ✨ 唯一的按钮：既有黑底白字的样式，又执行 handleSendMessage 函数 */}
   <button 
-    onClick={() => {
-      if (inputText.trim() !== "") {
-        // ✨ 点击时，把新留言加到列表顶部
-        const newMessage = {
-          id: Date.now(),
-          user: "Me", 
-          text: inputText,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages([newMessage, ...messages]); 
-        setInputText(""); // ✨ 清空输入框
-      }
+    onClick={handleSendMessage} 
+    style={{ 
+      backgroundColor: '#1e293b', 
+      color: 'white', 
+      padding: '0 25px', 
+      borderRadius: '10px', 
+      border: 'none',
+      cursor: 'pointer',
+      fontWeight: 'bold',
+      transition: 'background 0.2s'
     }}
-      
-      style={{ 
-        backgroundColor: '#1e293b', 
-        color: 'white', 
-        padding: '0 25px', 
-        borderRadius: '10px', 
-        border: 'none',
-        cursor: 'pointer',
-        fontWeight: 'bold',
-        transition: 'background 0.2s'
-      }}>
-        Send
-      </button>
-    </div>
+  >
+    Send
+  </button>
+</div>
 
     {/* --- 3. 底部 OGS 登录入口 (变轻量了) --- */}
     <div style={{ 
