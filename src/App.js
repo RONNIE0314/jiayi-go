@@ -235,37 +235,6 @@ const [inputText, setInputText] = useState("");
     if (e) setEvents(e);
   };
 
-const handleSendMessage = async (e) => {
-    e.preventDefault(); // 防止网页刷新
-    if (!inputText.trim() || !user) return; // 没输入内容或没登录，直接返回
-
-    console.log("🚀 尝试发送消息...");
-
-    try {
-      // 注意：这里的字段名必须和你的 Supabase messages 表列名完全一致
-      const { error } = await supabase
-        .from('messages')
-        .insert([
-          { 
-            content: inputText,       // 这里的 'content' 必须对应数据库的列名
-            user_name: user.email   // 这里的 'user_name' 必须对应数据库的列名
-          }
-        ]);
-
-      if (error) throw error;
-
-      setInputText(""); // 发送成功后清空输入框
-      console.log("✅ 发送成功！");
-      
-      // 如果你没写实时监听，这里手动调用一下 fetchData 刷新列表
-      fetchData(); 
-
-    } catch (error) {
-      console.error("❌ 发送失败:", error.message);
-      alert("发送失败: " + error.message);
-    }
-  };
-
 const handleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -457,10 +426,10 @@ return (
     <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
       <input 
         type="text" 
-        value={inputText} // ✨ 绑定文字
-        onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
-        placeholder="Type your message..." 
-        style={{ 
+value={inputText} // ✨ 绑定文字
+    onChange={(e) => setInputText(e.target.value)} // ✨ 输入时更新状态
+    placeholder="Type your message..." 
+    style={{ 
       flex: 1, 
       padding: '12px 16px', 
       borderRadius: '10px', 
@@ -469,21 +438,6 @@ return (
       fontSize: '0.95em'
     }}
   />
-
-<button 
-    onClick={handleSendMessage} 
-    style={{ 
-      padding: '10px 20px', 
-      backgroundColor: '#1e293b', 
-      color: 'white', 
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontWeight: 'bold'
-    }}
-  >
-    Send
-  </button>
-
   <button 
     onClick={() => {
       if (inputText.trim() !== "") {
