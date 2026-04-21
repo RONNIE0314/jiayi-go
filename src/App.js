@@ -255,6 +255,35 @@ const handleLogin = async () => {
     }
   };
 
+
+const handleSendMessage = async (e) => {
+  if (e) e.preventDefault(); // 防止页面刷新
+  if (!inputText.trim() || !user) return; // 确保输入不为空且用户已登录
+
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .insert([
+        { 
+          content: inputText,        // 对应数据库中的 content 列
+          user_name: user.email,     // 对应数据库中的 user_name 列
+          user_id: user.id           // ✨ 确保这一行已经加上，且名字与 Supabase 中的列名一致
+        }
+      ]);
+
+    if (error) throw error;
+
+    console.log("✅ 发送成功！");
+    setInputText(""); // 清空输入框
+    fetchData();      // 刷新消息列表，显示新消息
+  } catch (error) {
+    console.error("❌ 发送失败:", error.message);
+    alert("发送失败: " + error.message);
+  }
+};
+
+
+
 const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -438,6 +467,14 @@ value={inputText} // ✨ 绑定文字
       fontSize: '0.95em'
     }}
   />
+
+<button 
+  className="send-button" 
+  onClick={handleSendMessage} // ✨ 必须加上这一行，函数才会运行
+>
+  Send
+</button>
+
   <button 
     onClick={() => {
       if (inputText.trim() !== "") {
