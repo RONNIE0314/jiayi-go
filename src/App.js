@@ -367,7 +367,7 @@ return (
       src="/logo.png" 
       alt="JIAYI GO" 
       style={{ 
-        height: '100px',   // 建议高度在 45px-55px 之间，能看清灯塔和海景
+        height: '110px',   // 建议高度在 45px-55px 之间，能看清灯塔和海景
         width: 'auto', 
         marginRight: '15px',
         mixBlendMode: 'multiply',    // 核心：这一行会过滤掉图片中的纯白色背景
