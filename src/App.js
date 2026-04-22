@@ -201,7 +201,9 @@ function AdminPlayersPage({ players, fetchPlayers }) {
       <div style={listStyle}>
         {players.map(p => (
           <div key={p.id} style={cardStyle}>
-            <div style={infoStyle}><span style={nameStyle}>{p.name}</span><span style={rankStyle}>{p.rank}</span></div>
+            <div style={infoStyle}>
+              <span style={nameStyle}>{p.name}</span>
+              <span style={rankStyle}>{p.rank}</span></div>
             <button style={deleteBtnStyle} onClick={() => handleDelete(p.id)}>DELETE</button>
           </div>
         ))}
@@ -235,7 +237,7 @@ export default function App() {
       const { data: m, error: mError } = await supabase
         .from('messages')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (mError) throw mError;
 
