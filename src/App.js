@@ -362,7 +362,19 @@ return (
 
       {/* --- 3. 以下是你原本的结构，保持不变 --- */}
       <nav style={navStyle}>
-        <div style={{ fontWeight: 'bold', color: '#e61d2b', fontSize: '1.4em' }}>JIAYI GO</div>
+        <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('events')}>
+    <img 
+      src="/logo.png" 
+      alt="JIAYI GO" 
+      style={{ 
+        height: '100px',   // 建议高度在 45px-55px 之间，能看清灯塔和海景
+        width: 'auto', 
+        marginRight: '15px',
+        mixBlendMode: 'multiply',    // 核心：这一行会过滤掉图片中的纯白色背景
+        filter: 'contrast(1.2)',     // 增强对比度，让颜色更鲜艳
+      }} 
+    />
+  </div>
         <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
           {['events', 'players', 'you', 'admin', 'yourMatches']
             .filter(tab => {
@@ -432,7 +444,7 @@ return (
         {activeTab === 'you' && (
           <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
             <h2 style={{ ...headerStyle, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-      💬 Community Message Board
+      💬 Communication
     </h2>
             
 {/* --- 1. 留言显示区 --- */}
