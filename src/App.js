@@ -376,7 +376,7 @@ return (
       <nav style={navStyle}>
         <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('events')}>
     <img 
-      src="/logo.png" 
+      src="/logo.png"
       alt="JIAYI GO" 
       style={{ 
         height: '110px',   // 建议高度在 45px-55px 之间，能看清灯塔和海景
