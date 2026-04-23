@@ -42,17 +42,6 @@ const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
 const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' };
 const ratingStyle = { color: '#94a3b8' };
 const loginBtnStyle = { backgroundColor: '#8b5cf6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
-
-const imgStyle = {
-  width: '100%',
-  height: '100%',
-  // 关键：cover 会自动裁剪多余部分，保证铺满且不留白
-  objectFit: 'cover', 
-  display: 'block',
-  // 暂时移除 rotate，让它按原图方向显示
-  transform: 'none' 
-};
-
 const adminContainerStyle = {
   backgroundColor: 'rgba(30, 41, 59, 0.7)',
   padding: '30px',
@@ -89,9 +78,17 @@ const roundBadgeStyle = { position: 'absolute', top: '-10px', left: '20px', back
 const smallRoundBadgeStyle = { backgroundColor: '#64748b', color: 'white', padding: '2px 8px', borderRadius: '6px', fontSize: '0.7em', marginRight: '12px' };
 const matchTimeStyle = { textAlign: 'right', fontSize: '0.9em', color: '#1e293b' };
 const historyTimeStyle = { color: '#64748b', fontSize: '0.85em' };
+const imgStyle = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover', 
+  display: 'block',
+  transform: 'none' 
+};
+
+
 
 // --- 2. 页面子组件 ---
-
 // 活动页
 function EventsPage({ events, onEventClick }) {
 
@@ -375,18 +372,7 @@ return (
       {/* --- 3. 以下是你原本的结构，保持不变 --- */}
       <nav style={navStyle}>
         <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }} onClick={() => setActiveTab('events')}>
-    <img 
-      src="/logo.png"
-      alt="JIAYI GO" 
-      style={{ 
-        height: '110px',   // 建议高度在 45px-55px 之间，能看清灯塔和海景
-        width: 'auto', 
-        marginRight: '15px',
-        mixBlendMode: 'multiply',    // 核心：这一行会过滤掉图片中的纯白色背景
-        filter: 'contrast(1.2)',     // 增强对比度，让颜色更鲜艳
-      }} 
-    />
-  </div>
+     </div>
         <div style={{ display: 'flex', gap: '25px', alignItems: 'center' }}>
           {['events', 'players', 'you', 'admin', 'yourMatches']
             .filter(tab => {
@@ -436,7 +422,12 @@ return (
   /* 1. 外层增加这个 div 并应用你定义的 adminContainerStyle */
   <div style={adminContainerStyle}>
     {user?.email === "bjmyschool@gmail.com" ? (
+<>
+        {/* --- ✨ 新增：管理后台顶部的 LOGO 或预览图 --- */}
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          </div>
       <AdminPlayersPage players={players} fetchPlayers={fetchData} />
+      </> // 👈 就是这里！刚才漏掉了这个闭合标签
     ) : (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
         <h2 style={{ color: '#e61d2b' }}>🔒 Access Denied</h2>
