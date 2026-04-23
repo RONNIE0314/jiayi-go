@@ -93,7 +93,7 @@ const historyTimeStyle = { color: '#64748b', fontSize: '0.85em' };
 // --- 2. 页面子组件 ---
 
 // 活动页
-function EventsPage({ events }) {
+function EventsPage({ events, onEventClick }) {
 
 const eventCardStyle = {
     backgroundColor: '#323c50', 
@@ -133,8 +133,11 @@ const eventCardStyle = {
       <h1 style={headerStyle}>Upcoming Events</h1>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '25px', justifyContent: 'flex-start' }}>
         {events.map((ev) => (
-          <div key={ev.id} style={eventCardStyle}>
-            
+          <div 
+            key={ev.id} 
+            style={{ ...eventCardStyle, cursor: 'pointer' }} 
+            onClick={() => onEventClick(ev.id)}
+          >
 {/* EventsPage 里的图片部分 */}
 <div style={{ 
   width: '100%',
@@ -221,12 +224,21 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
   
+  // ✨ 插入点 1：注册相关的状态
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState(null);
+
   // 留言状态：包含默认欢迎词和输入框文字
   const [inputText, setInputText] = useState(""); 
   const [messages, setMessages] = useState([
     { id: 1, user_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
     { id: 2, user_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
   ]);
+
+  const handleEventClick = (eventId) => {
+    setSelectedEventId(eventId);
+    setIsRegistering(true);
+  };
 
   // 2. 统一数据获取函数 (抓取玩家、活动、留言)
   const fetchData = async () => {
@@ -400,7 +412,7 @@ return (
     
 
       <div style={contentStyle}>
-        {activeTab === 'events' && <EventsPage events={events} />}
+        {activeTab === 'events' && <EventsPage events={events} onEventClick={handleEventClick} />}
 
         {activeTab === 'players' && (
           <div style={listStyle}>
@@ -591,6 +603,70 @@ onKeyDown={(e) => {
           </div>
         )}
       </div> {/* ✅ 闭合 contentStyle 的 div */}
+
+{/* --- ✨ 就在这里插入：注册确认弹窗 (Modal) --- */}
+      {isRegistering && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999, // 确保在最前面
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            backgroundColor: '#1e293b',
+            padding: '40px',
+            borderRadius: '20px',
+            border: '1px solid #8b5cf6',
+            textAlign: 'center',
+            maxWidth: '400px',
+            color: 'white'
+          }}>
+            <h2 style={{ marginBottom: '10px' }}>Confirm Registration</h2>
+            <p style={{ color: '#94a3b8', marginBottom: '30px' }}>
+              Would you like to register for this event?
+            </p>
+            
+            <div style={{ display: 'flex', gap: '15px' }}>
+              <button 
+                onClick={() => setIsRegistering(false)} 
+                style={{ ...deleteBtnStyle, flex: 1, padding: '12px', height: 'auto' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  const { error } = await supabase
+                    .from('registrations')
+                    .insert([{ 
+                      event_id: selectedEventId, 
+                      user_id: user?.id,
+                      user_name: user?.user_metadata?.full_name || user?.email,
+                      user_email: user?.email,
+                      status: 'registered'
+                    }]);
+                  
+                  if (!error) {
+                    alert("Registration Successful!");
+                    setIsRegistering(false);
+                    // 报名成功后可以自动跳转到个人中心
+                    setActiveTab('you'); 
+                  } else {
+                    alert("Registration failed: " + error.message);
+                  }
+                }} 
+                style={{ ...addBtnStyle, flex: 1, padding: '12px', height: 'auto' }}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
