@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
 const containerStyle = { 
   width: '100%',
@@ -88,7 +87,6 @@ const imgStyle = {
   display: 'block',
   transform: 'none' 
 };
-
 
 
 // --- 2. 页面子组件 ---
@@ -246,14 +244,29 @@ function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
 
 const handleStartGrouping = async (e) => {
   e.preventDefault();
-  setStep(1); // 1. 进入转圈动画
+  try {
+    // 1. 先查重 (静默进行)
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('registrations')
+      .select('id')
+      .eq('event_id', String(selectedEventId))
+      .eq('user_id', user.id)
+      .maybeSingle();
 
+    if (checkError) throw checkError;
+
+    if (existingEntry) {
+      alert("You have already registered for this event!");
+      onFinish(); // 或者 setActiveTab('events')
+      return; // 结束函数，不再执行后面的动画和插入
+    }
+  
+  setStep(1); // 1. 进入转圈动画
   // ✨ 先生成一个随机数，这样我们既能存数据库，也能更新 UI 状态
   const assignedGround = Math.floor(Math.random() * 5) + 1;
 
-  try {
-    // 2. 将报名信息（含 Email）存入 Supabase
-    const { error } = await supabase
+     // 2. 将报名信息（含 Email）存入 Supabase
+  const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
         event_id: String(selectedEventId),
@@ -266,7 +279,7 @@ const handleStartGrouping = async (e) => {
         ground: assignedGround // 使用刚才生成的数字
       }]);
 
-    if (error) throw error;
+    if (insertError) throw insertError;
 
     // ✅ 关键：调用 setGround。这会消除警告并让 step 2 显示正确的数字
     setGround(assignedGround);
@@ -277,8 +290,9 @@ const handleStartGrouping = async (e) => {
     }, 3000);
 
   } catch (err) {
+    console.error("Registration error:", err.message);
     alert("Registration failed: " + err.message);
-    setStep(0); // 出错则退回表单页
+    setStep(0);
   }
 };
 
@@ -387,7 +401,6 @@ useEffect(() => {
     window.history.replaceState({}, document.title);
   }
 }, [location, setActiveTab]); // 加上依赖项
-
 
   const [selectedEventId, setSelectedEventId] = useState(null);
 
@@ -877,5 +890,6 @@ onKeyDown={(e) => {
     </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
+
 
 
