@@ -129,7 +129,7 @@ function EventsPage({ events, onEventClick }) {
                     marginBottom: '20px', 
                     width: '100%' }}>
         <img 
-          src={process.env.PUBLIC_URL + '/logo.jpg'} // 这样写可以兼容不同的部署环境
+          src="/logo.jpg"
           alt="JIAYI GO BRAND" 
           style={{ 
             height: '110px', 
