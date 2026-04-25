@@ -135,12 +135,10 @@ function EventsPage({ events, onEventClick }) {
             height: '110px', 
             width: '110px',          // 保持宽高一致
             filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',  
-            borderRadius: '50%',     // 👈 核心：强制切成圆形，剪掉白边
+            borderRadius: '50%',     // 👈 核心：强制切成圆形，剪掉白边            
             objectFit: 'cover',      // 确保内容不缩放变形
             display: 'inline-block',
-            backgroundColor: 'white', // 如果切圆后边缘有微小白线，这能让它更平滑
-            // 增加一个发光效果，让 LOGO 更有质感，并呼应右上角按钮的紫色
-            boxShadow: '0 0 20px rgba(157, 125, 250, 0.5)',
+            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
             border: '2px solid rgba(255, 255, 255, 0.3)'
           }} 
           onError={(e) => { e.target.style.display = 'none'; }} 
