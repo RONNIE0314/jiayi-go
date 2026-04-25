@@ -121,7 +121,7 @@ function EventsPage({ events, onEventClick }) {
                     justifyContent: 'flex-start', // 👈 让内容靠左对齐 (原本是 center)
                     // ✨ 关键修改：使用负 margin-left 强行向左拉伸
                     // 这里的 -40px 可以根据你的页面边距调整，数字越大越靠左
-                    marginLeft: '-200px',
+                    marginLeft: '-130px',
                     paddingLeft: '0px',      // 👈 控制向左移动的距离，可以根据喜好调整
                     marginTop: '-100px',  // 👈 使用负 margin 让它向上“提”一点
                     zIndex: 99999,
@@ -567,7 +567,7 @@ return (
           gap: '25px', 
           alignItems: 'center',          
           justifyContent: 'flex-end', 
-          marginRight: '150px', 
+          marginRight: '110px', 
           flex: 1 
           }}>
           {['events', 'players', 'you', 'admin', 'yourMatches']
