@@ -116,34 +116,24 @@ function EventsPage({ events, onEventClick }) {
   return (
     <div style={listStyle}>
       
-      {/* 🚀 1. 全局 LOGO：稳稳地压在标题上方 */}
-      <div style={{ display: 'flex',          // 使用 flex 布局
-                    justifyContent: 'flex-start', // 👈 让内容靠左对齐 (原本是 center)
-                    // ✨ 关键修改：使用负 margin-left 强行向左拉伸
-                    // 这里的 -40px 可以根据你的页面边距调整，数字越大越靠左
-                    marginLeft: '-130px',
-                    paddingLeft: '0px',      // 👈 控制向左移动的距离，可以根据喜好调整
-                    marginTop: '-100px',  // 👈 使用负 margin 让它向上“提”一点
-                    zIndex: 99999,
-                    transform: 'translateY(-45%)',
-                    marginBottom: '20px', 
-                    width: '100%' }}>
-        <img 
-          src="/logo.jpg"
-          alt="JIAYI GO BRAND" 
-          style={{ 
-            height: '110px', 
-            width: '110px',          // 保持宽高一致
-            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',  
-            borderRadius: '50%',     // 👈 核心：强制切成圆形，剪掉白边            
-            objectFit: 'cover',      // 确保内容不缩放变形
-            display: 'inline-block',
-            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
-            border: '2px solid rgba(255, 255, 255, 0.3)'
-          }} 
-          onError={(e) => { e.target.style.display = 'none'; }} 
-        />
-      </div>
+      {/* 🚀 1. 全局 LOGO：容器 */}
+<div className="logo-wrapper">
+  <img 
+    src="/logo.jpg"
+    alt="JIAYI GO BRAND" 
+    className="main-logo"
+    style={{ 
+      height: '110px', 
+      width: '110px',
+      borderRadius: '50%',
+      objectFit: 'cover',
+      filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
+      boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
+      border: '2px solid rgba(255, 255, 255, 0.3)'
+    }} 
+    onError={(e) => { e.target.style.display = 'none'; }} 
+  />
+</div>
 
       {/* 2. 标题 */}
       <h1 style={headerStyle}>Upcoming Events</h1>
@@ -184,7 +174,7 @@ function EventsPage({ events, onEventClick }) {
   );
 }
 // 管理后台页
-function AdminPlayersPage({ players, fetchPlayers }) {
+function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const [newPlayer, setNewPlayer] = useState({ name: '', rank: '', rating: '' });
 
   const handleAdd = async () => {
@@ -208,7 +198,25 @@ function AdminPlayersPage({ players, fetchPlayers }) {
   };
 
   return (
-    <div>
+    <div style={listStyle}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
+      
+      {/* ✨ 重点：在这里把 Logo 加上，不要删除首页的，而是这里也加一份 */}
+      <div className="logo-wrapper">
+        <img 
+          src="/logo.jpg" 
+          alt="JIAYI GO BRAND" 
+          className="main-logo"
+          style={{ 
+            height: '110px', width: '110px', borderRadius: '50%',
+            objectFit: 'cover', cursor: 'pointer',
+            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
+            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
+            border: '2px solid rgba(255, 255, 255, 0.3)'
+          }} 
+          onClick={() => setActiveTab('events')} 
+        />
+      </div>
+
       <h1 style={headerStyle}>Admin: Players Management</h1>
       <div style={adminFormStyle}>
         <input style={inputStyle} placeholder="Name" value={newPlayer.name} onChange={e => setNewPlayer({...newPlayer, name: e.target.value})} />
@@ -382,6 +390,7 @@ export default function App() {
   
   // ✨ 插入点 1：注册相关的状态
   const [isRegistering, setIsRegistering] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
 
 useEffect(() => {
@@ -558,16 +567,19 @@ return (
         overflow: 'visible',
         // 保持 Navbar 内部的对齐
         display: 'flex',
-        justifyContent: 'center', /* Logo 居中 */
-        alignItems: 'center'
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '0 20px'
       }}>  
 
-        <div style={{ 
-          display: 'flex',         
-          gap: '25px', 
-          alignItems: 'center',          
-          justifyContent: 'flex-end', 
-          marginRight: '110px', 
+        <div 
+          className={`nav-links ${isMenuOpen ? 'open' : ''}`} // 👈 这里使用了 isMenuOpen，消除警告
+          style={{ 
+            display: 'flex',         
+            gap: '25px', 
+            alignItems: 'center',          
+            justifyContent: 'flex-end', 
+            marginRight: '110px', 
           flex: 1 
           }}>
           {['events', 'players', 'you', 'admin', 'yourMatches']
@@ -587,6 +599,7 @@ return (
                 onClick={() => {
                   console.log("切换到:", t);
                   setActiveTab(t);
+                  setIsMenuOpen(false); // 👈 切换标签时自动关闭手机菜单
                 }}>
                 {t === 'yourMatches' ? 'YOUR MATCHES' : t.toUpperCase()}
               </span>
@@ -637,8 +650,9 @@ return (
 <>
         {/* --- ✨ 新增：管理后台顶部的 LOGO 或预览图 --- */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <p style={{ color: '#94a3b8', fontSize: '0.9em' }}>Admin Control Panel</p>
           </div>
-      <AdminPlayersPage players={players} fetchPlayers={fetchData} />
+      <AdminPlayersPage players={players} fetchPlayers={fetchData} setActiveTab={setActiveTab} />
       </> // 👈 就是这里！刚才漏掉了这个闭合标签
     ) : (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
@@ -651,6 +665,22 @@ return (
             <p>您当前未登录，请先点击右上角 <b>SIGN IN</b></p>
           )}
         </div>
+
+       {/* 增加一个返回按钮，防止普通用户卡死在这里 */}
+        <button 
+          onClick={() => setActiveTab('events')}
+          style={{
+            marginTop: '20px',
+            padding: '10px 20px',
+            borderRadius: '8px',
+            border: 'none',
+            backgroundColor: '#1e293b',
+            color: 'white',
+            cursor: 'pointer'
+          }}
+        >
+          Return to Events
+        </button> 
       </div>
     )}
   </div>

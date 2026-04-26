@@ -2,17 +2,7 @@
   text-align: center;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
+/* 渐变背景保持不变，它是 Jiayi Go 的灵魂 */
 .App-header {
   background-color: #051937;
   background-image: linear-gradient(rgba(5, 25, 55, 0.4), rgba(5, 25, 55, 0.4)), url('/background.jpg');
@@ -28,15 +18,101 @@
   color: white;
 }
 
+/* --- 2. Logo 容器定位 (解决电脑端偏移问题) --- */
+.logo-wrapper {
+  display: flex;
+  justify-content: flex-start;
+  margin-left: -130px; /* 电脑端保持原样 */
+  margin-top: -100px;
+  transform: translateY(-45%);
+  z-index: 9999;
+  width: 100%;
+}
+
+.main-logo {
+  transition: all 0.3s ease; /* 增加平滑缩放效果 */
+}
+
+/* --- 3. 导航栏核心逻辑 --- */
+
+/* 默认情况下（电脑端）隐藏汉堡图标 */
+.hamburger-icon {
+  display: none !important;
+}
+
+/* 导航链接容器 */
+.nav-links {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  transition: all 0.3s ease;
+}
+
+/* --- 4. ✨ 核心：手机端响应式适配 (小于 768px) --- */
+@media (max-width: 768px) {
+  
+  /* 1. 让 Logo 回归正轨，不再飞出屏幕 */
+  .logo-wrapper {
+    margin-left: 0 !important;
+    margin-top: -20px !important;
+    transform: translateY(0) !important;
+    justify-content: center !important; /* 手机端居中 */
+  }
+
+  .main-logo {
+    height: 80px !important; /* 手机端稍微缩小 */
+    width: 80px !important;
+  }
+
+  /* 2. 显示汉堡图标 */
+  .hamburger-icon {
+    display: block !important;
+    position: absolute;
+    right: 20px;
+    top: 25px;
+    z-index: 1001;
+  }
+
+  /* 3. 改造菜单：变成垂直下拉全屏 */
+  .nav-links {
+    display: none !important; /* 默认隐藏 */
+    flex-direction: column !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    background: rgba(5, 25, 55, 0.98); /* 纯深色背景，遮住内容 */
+    padding: 80px 0 30px 0;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    z-index: 1000;
+  }
+
+  /* 4. 当点击汉堡图标增加 .open 类时显示 */
+  .nav-links.open {
+    display: flex !important;
+  }
+
+  /* 5. 手机端菜单项文字大一点，好点 */
+  .nav-links span {
+    font-size: 20px;
+    padding: 15px !important;
+    width: 100%;
+  }
+}
+
+/* --- 5. 其他原有动画样式 --- */
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
 .App-link {
-  color: #051937;
+  color: #61dafb; /* 修正原本的蓝色，使其在深色背景更亮 */
 }
 
 @keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
