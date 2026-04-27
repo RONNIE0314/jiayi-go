@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
 const containerStyle = { 
@@ -114,28 +115,31 @@ function EventsPage({ events, onEventClick }) {
 
   // 2. 渲染页面
   return (
-    <div style={listStyle}>
+    <div style={{ ...listStyle, position: 'relative', paddingTop: '80px' }}>
       
-      {/* 🚀 1. 全局 LOGO：容器 */}
-<div className="logo-wrapper">
-  <img 
-    src="/logo.jpg"
-    alt="JIAYI GO BRAND" 
-    className="main-logo"
-    style={{ 
-      height: '110px', 
-      width: '110px',
-      borderRadius: '50%',
-      objectFit: 'cover',
-      filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
-      boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
-      border: '2px solid rgba(255, 255, 255, 0.3)'
-    }} 
-    onError={(e) => { e.target.style.display = 'none'; }} 
-  />
-</div>
+    {/* 🚀 放置在此：Logo 包装容器 */}
+      <div className="logo-wrapper" style={{
+        position: 'absolute', 
+        top: '-100px',          
+        left: '-120px',         
+        zIndex: 100,          
+      }}>
+        <img 
+          src="/logo.jpg" 
+          alt="JIAYI GO BRAND" 
+          className="main-logo"
+          style={{ 
+            height: '110px', width: '110px', borderRadius: '50%',
+            objectFit: 'cover',
+            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
+            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            transition: 'transform 0.2s'
+          }} 
+          onError={(e) => { e.target.style.display = 'none'; }} 
+        />
+      </div>
 
-      {/* 2. 标题 */}
       <h1 style={headerStyle}>Upcoming Events</h1>
 
       {/* 3. 赛事列表 */}
@@ -198,26 +202,47 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   };
 
   return (
-    <div style={listStyle}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
+    <div style={{ ...containerStyle,  
+                  ...listStyle, 
+                  position: 'relative', 
+                  paddingTop: '160px',
+                  display: 'block', 
+                  textAlign: 'left'
+                }}>
       
-      {/* ✨ 重点：在这里把 Logo 加上，不要删除首页的，而是这里也加一份 */}
-      <div className="logo-wrapper">
+      {/* 🚀 放置在此：Logo 包装容器 */}
+      <div className="logo-wrapper" style={{
+        position: 'fixed',
+        top: '20px',
+        left: '60px',
+        zIndex: 9999,
+        width: '110px',
+        height: '110px',
+        margin: 0,
+        pointerEvents: 'auto'
+      }}>
         <img 
           src="/logo.jpg" 
-          alt="JIAYI GO BRAND" 
-          className="main-logo"
+          alt="JIAYI GO BRAND"
+          className="main-logo" 
           style={{ 
             height: '110px', width: '110px', borderRadius: '50%',
             objectFit: 'cover', cursor: 'pointer',
-            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
-            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
-            border: '2px solid rgba(255, 255, 255, 0.3)'
+            filter: 'drop-shadow(0 4px 15px rgba(9, 5, 65, 0.4))',
+            boxShadow: '0 0 15px rgba(0,0,0,0.6)',
+            border: '2px solid white',
+            transition: 'transform 0.2s'
           }} 
-          onClick={() => setActiveTab('events')} 
+          onClick={() => setActiveTab('events')} // 管理员点 Logo 回首页
+          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'} 
         />
       </div>
 
-      <h1 style={headerStyle}>Admin: Players Management</h1>
+      <h1 style={{ ...headerStyle, marginTop: '10px', marginBottom: '30px' }}>
+      Admin: Players Management
+      </h1>
+
       <div style={adminFormStyle}>
         <input style={inputStyle} placeholder="Name" value={newPlayer.name} onChange={e => setNewPlayer({...newPlayer, name: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 1d)" value={newPlayer.rank} onChange={e => setNewPlayer({...newPlayer, rank: e.target.value})} />
@@ -238,40 +263,17 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   );
 }
 
-// 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示)
+// --- 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示) ---
 function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
-  const [step, setStep] = useState(0); // 0: Form, 1: Grouping, 2: Result
-  const [ground, setGround] = useState(null);
-  const selectedEvent = events.find(e => e.id === selectedEventId);
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    username: '', rank: '', rating: '', password: ''
-  });
-
-const handleStartGrouping = async (e) => {
-  e.preventDefault();
-  try {
-    // 1. 先查重 (静默进行)
-    const { data: existingEntry, error: checkError } = await supabase
-      .from('registrations')
-      .select('id')
-      .eq('event_id', String(selectedEventId))
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (checkError) throw checkError;
-
-    if (existingEntry) {
-      alert("You have already registered for this event!");
-      onFinish(); // 或者 setActiveTab('events')
-      return; // 结束函数，不再执行后面的动画和插入
-    }
+  const [step, setStep] = useState(0); // 0: 表单, 1: 动画, 2: 结果
+  const [formData, setFormData] = useState({ username: '', rank: '', rating: '', password: '' });
   
-  setStep(1); // 1. 进入转圈动画
-  // ✨ 先生成一个随机数，这样我们既能存数据库，也能更新 UI 状态
-  const assignedGround = Math.floor(Math.random() * 5) + 1;
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+  const handleStartGrouping = async (e) => {
+    e.preventDefault();
+  try {
+    setStep(1); // 进入动画
 
-     // 2. 将报名信息（含 Email）存入 Supabase
   const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
@@ -282,65 +284,47 @@ const handleStartGrouping = async (e) => {
         user_email: user.email, 
         rank: formData.rank,
         rating: formData.rating,
-        ground: assignedGround // 使用刚才生成的数字
+        ground: 0 // <--- 重点：初始值为0，代表待分配
       }]);
 
     if (insertError) throw insertError;
 
-    // ✅ 关键：调用 setGround。这会消除警告并让 step 2 显示正确的数字
-    setGround(assignedGround);
-
-    // 3. 模拟后台处理感，等 3 秒后再显示结果
+    // 2. 动画结束后直接进入“等待审核”状态
     setTimeout(() => {
       setStep(2); 
-    }, 3000);
+    }, 2000);
 
   } catch (err) {
-    console.error("Registration error:", err.message);
     alert("Registration failed: " + err.message);
     setStep(0);
   }
-};
+  };
 
+  // --- 视图渲染逻辑 ---
+
+  // 步骤 0：填写表单
   if (step === 0) return (
     <div style={adminContainerStyle}>
-{/* --- 新增：返回箭头按钮 --- */}
-    <div 
-      onClick={() => navigate('/events', { state: { openModal: true } })}
-      style={{ 
-        cursor: 'pointer', 
-        color: 'white', 
-        display: 'flex', 
-        alignItems: 'center', 
-        marginBottom: '15px',
-        width: 'fit-content', // 确保只有点击图标和文字区域才触发
-        opacity: 0.8,
-        transition: 'opacity 0.2s'
-      }}
-      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
-    >
-      <span style={{ fontSize: '1.4em', marginRight: '8px', lineHeight: '1' }}>←</span>
-      <span style={{ fontSize: '0.9em', fontWeight: '500' }}>Back</span>
-    </div>
+      <div 
+        onClick={() => onFinish()} // 点击返回直接触发完成/关闭
+        style={{ cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', marginBottom: '15px', opacity: 0.8 }}
+      >
+        <span style={{ fontSize: '1.4em', marginRight: '8px' }}>←</span>
+        <span>Back to Events</span>
+      </div>
       <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
       <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <input style={inputStyle} placeholder="Go Username" required onChange={e => setFormData({...formData, username: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
         <input style={inputStyle} placeholder="Current Rating" required onChange={e => setFormData({...formData, rating: e.target.value})} />
-        <input 
-  type="email" 
-  placeholder="Email Address" 
-  value={user?.email} 
-  readOnly 
-  style={{ ...inputStyle, opacity: 0.7 }} // ✅ 两个样式合并成了一个
-/>
+        <input style={{ ...inputStyle, opacity: 0.7, backgroundColor: '#1e293b' }} value={user?.email || ''} readOnly />
         <input style={inputStyle} type="password" placeholder="OGS Password (for link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
         <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Join & Start Grouping</button>
       </form>
     </div>
   );
 
+  // 步骤 1：分组动画
   if (step === 1) return (
     <div style={{ textAlign: 'center', padding: '60px', color: 'white' }}>
       <div className="loader" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #8b5cf6', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
@@ -350,34 +334,64 @@ const handleStartGrouping = async (e) => {
     </div>
   );
 
- return (
-  <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#064e3b', borderRadius: '20px', border: '2px solid #10b981' }}>
-    <h2 style={{ color: '#6ee7b7' }}>🎉 Grouping Complete!</h2>
-    
-    <div style={{ fontSize: '5em', color: 'white', fontWeight: '900', margin: '20px 0' }}>
-      {ground} <span style={{fontSize:'0.3em'}}>GROUND</span>
-    </div>
-    
-    {/* ✨ 我们把原来的 Link 按钮删掉，把 Return 按钮升级成大按钮 */}
-    <button 
-      onClick={onFinish} 
-      style={{ 
-        ...loginBtnStyle, 
-        backgroundColor: '#10b981', 
-        padding: '15px 40px',
-        fontSize: '1.1em',
-        cursor: 'pointer'
-      }}
-    >
-      Confirm & Return to Dashboard
-    </button>
+// 步骤 2：显示报名成功，等待管理员分组
+  if (step === 2) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#064e3b', borderRadius: '20px', border: '2px solid #10b981' }}>
+        <h2 style={{ color: '#6ee7b7' }}>🎉 Registration Complete!</h2>
+        
+        <div style={{ margin: '30px 0' }}>
+          {/* ✅ 重点：这里直接写文字，不要写 {ground} 变量 */}
+          <div style={{ fontSize: '3em', color: 'white', fontWeight: '900', textTransform: 'uppercase' }}>
+            Waiting for Grouping
+          </div>
+       </div>
+          <button 
+          onClick={onFinish} 
+          style={{ 
+            ...loginBtnStyle, 
+            backgroundColor: '#10b981', 
+            padding: '15px 40px', 
+            fontSize: '1.1em', 
+            cursor: 'pointer',
+            border: 'none',
+            borderRadius: '8px',
+            color: 'white'
+          }}
+        >
+          Confirm & Return to Dashboard
+        </button>
 
-    <p style={{ color: '#a7f3d0', marginTop: '20px', fontSize: '0.85em', opacity: 0.8 }}>
-      You can link your OGS account in the "YOU" tab later.
-    </p>
-  </div>
-);
+
+        <p style={{ color: '#a7f3d0', marginTop: '20px', fontSize: '0.85em', opacity: 0.8 }}>
+          You can link your OGS account in the "YOU" tab later.
+        </p>
+
+      </div>
+    );
+   }
+
+  // ✅ 如果上面的 if 都不满足，最后才执行这个保底返回
+  return null;
 }
+
+const getEventStatus = (deadline) => {
+  if (!deadline) return { isExpired: false, timeLeft: null };
+  const diff = new Date(deadline) - new Date();
+  const isExpired = diff <= 0;
+  if (isExpired) return { isExpired: true, timeLeft: "Registration Closed" };
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diff / 1000 / 60) % 60);
+
+  let timeLeft = "";
+  if (days > 0) timeLeft = `${days}d ${hours}h left`;
+  else if (hours > 0) timeLeft = `${hours}h ${minutes}m left`;
+  else timeLeft = `${minutes}m left`;
+
+  return { isExpired: false, timeLeft };
+};
 
 // --- 3. 主 App 组件 ---
 export default function App() {
@@ -392,6 +406,10 @@ export default function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const isRegistrationOpen = (deadline) => {
+    if (!deadline) return true; // 没设截止日期则默认开放
+    return new Date() < new Date(deadline);
+  };
 
 useEffect(() => {
   // 1. 同步状态：如果路径回到了首页/赛事页，强制把 activeTab 改回 'events'
@@ -419,6 +437,12 @@ useEffect(() => {
   ]);
 
   const handleEventClick = (eventId) => {
+    const targetEvent = events.find(e => e.id === eventId);
+   if (targetEvent && !isRegistrationOpen(targetEvent.registration_deadline)) 
+    {
+    return alert(`Sorry, the registration for "${targetEvent.name}" has already closed.`);
+    } 
+    
     setSelectedEventId(eventId);
     setIsRegistering(true);
   };
@@ -445,6 +469,35 @@ useEffect(() => {
       console.error("❌ 数据获取失败:", error.message);
     }
   };
+
+ // ✨ 新增：管理员更新赛事截止日期的函数
+const updateEventDeadline = async (eventId, newDeadline) => {
+   
+  try {
+    // 强制转换为数字，确保匹配数据库的 int8 类型
+    const numericId = Number(eventId);
+    const deadlineToStore = newDeadline ? new Date(newDeadline).toISOString() : null;
+
+    const { data, error } = await supabase
+      .from('events')
+      .update({ registration_deadline: deadlineToStore })
+      .eq('id', numericId)
+      .select();
+
+    if (error) throw error;
+    
+    if (data && data.length === 0) {
+      alert("⚠️ Warning: No rows matched. Check if Event ID 1 exists.");
+    } else {
+      alert("✅ Deadline updated successfully!");
+      alert(deadlineToStore ? "✅ Deadline updated!" : "🗑️ Deadline cleared!");
+      await fetchData(); // 立即刷新页面数据
+    } 
+  } catch (err) {
+    console.error("Update failed:", err.message);
+    alert("❌ Error: " + err.message);
+  }
+}; 
 
   // 3. 登录/登出逻辑
   const handleLogin = async () => {
@@ -494,6 +547,35 @@ useEffect(() => {
       alert("发送失败: " + error.message);
     }
   };
+
+  const handleExportEventRegistrations = async (eventId, eventTitle) => {
+  try {
+    const { data: regData, error } = await supabase
+      .from('registrations')
+      .select('*')
+      .eq('event_id', eventId);
+
+    if (error) throw error;
+    if (!regData || regData.length === 0) {
+      alert("该赛事暂时无人报名。");
+      return;
+    }
+
+    const exportData = regData.map(reg => ({
+      'Player Name': reg.user_name,
+      'Registration Time': new Date(reg.created_at).toLocaleString(),
+      'Event ID': reg.event_id
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Registrations");
+    const fileName = `Registrations_${eventTitle || 'Event'}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  } catch (err) {
+    console.error("Export Error:", err.message);
+  }
+};
 
   // 5. OGS 验证逻辑
   const handleOgsVerify = () => {
@@ -650,9 +732,176 @@ return (
 <>
         {/* --- ✨ 新增：管理后台顶部的 LOGO 或预览图 --- */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div>
           <p style={{ color: '#94a3b8', fontSize: '0.9em' }}>Admin Control Panel</p>
           </div>
+
+        {/* 📥 这是你的新按钮！ */}
+          <button 
+            onClick={() => {
+              // 这里直接调用导出逻辑
+              const exportData = players.map(p => ({
+                'Player ID': p.id,
+                'Name': p.name,
+                'Rank': p.rank,
+                'Rating': p.rating
+              }));
+              const ws = XLSX.utils.json_to_sheet(exportData);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Players");
+              XLSX.writeFile(wb, `Jiayi_Go_Players_${new Date().toISOString().slice(0,10)}.xlsx`);
+            }}
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '0.85em',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+            }}
+          >
+            📥 Export Excel
+          </button>
+        </div>      
+
+      {/* --- 赛事报名导出区 --- */}
+<div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
+  <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '1em' }}>Export Event Rosters</h3>
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+    {events.map(event => (
+      <button 
+        key={event.id}
+        onClick={() => handleExportEventRegistrations(event.id, event.title)}
+        style={{
+          backgroundColor: '#059669',
+          color: 'white',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '0.8em',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px'
+        }}
+      >
+        📥 {event.title || 'Unnamed Event'}
+      </button>
+    ))}
+  </div>
+</div>
+ 
+<div style={{ 
+  marginTop: '20px', 
+  padding: '20px', 
+  backgroundColor: 'rgba(30, 41, 59, 0.7)', // 深色半透明背景
+  borderRadius: '16px',
+  border: '1px solid rgba(255, 255, 255, 0.1)'
+}}>
+  <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '1.1em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+    📅 Registration Deadlines
+  </h3>
+  
+  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    {events.map(event => (
+      <div key={event.id} style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        gap: '12px',
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        padding: '12px',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: '10px',
+        border: '1px solid rgba(139, 92, 246, 0.2)'
+      }}>
+        <div style={{ color: 'white', fontWeight: '500' }}>
+          {event.name ||event.title || 'Unnamed Event'}
+        </div>
+
+        {/* ✨ 重点：左侧显示当前的截止日期文字 */}
+        <div style={{ fontSize: '0.85em', color: '#94a3b8' }}>
+          <span style={{ color: '#8b5cf6', marginRight: '5px' }}>●</span>
+          Current Deadline: 
+          <strong style={{ color: '#f8fafc', marginLeft: '5px' }}>
+            {event.registration_deadline 
+              ? new Date(event.registration_deadline).toLocaleString('en-CA', { hour12: false }) 
+              : "Not Set"}
+          </strong>
+        </div>
+
+
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <input 
+            type="datetime-local" 
+            // 格式化时间以适配 input 展示：2026-04-27T09:00
+            defaultValue={event.registration_deadline ? new Date(event.registration_deadline).toISOString().slice(0, 16) : ""}
+            id={`deadline-${event.id}`}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #475569',
+              backgroundColor: '#0f172a',
+              color: 'white',
+              fontSize: '0.85em'
+            }}
+          />
+          <button 
+            onClick={() => {
+              const val = document.getElementById(`deadline-${event.id}`).value;
+              updateEventDeadline(event.id, val);
+            }}
+            style={{
+              backgroundColor: '#8b5cf6',
+              color: 'white',
+              border: 'none',
+              padding: '6px 15px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: '0.85em',
+              transition: 'all 0.2s'
+            }}
+          >
+            Update
+          </button>
+          
+          {/* ✨ 新增：Clear 按钮 */}
+  
+  <button 
+    onClick={() => {
+      if (window.confirm("Are you sure you want to clear the deadline?")) {
+        // 传入空字符串，触发函数中的 null 逻辑
+        updateEventDeadline(event.id, ""); 
+        // 将输入框内容也清空
+        document.getElementById(`deadline-${event.id}`).value = "";
+      }
+    }}
+    style={{
+      backgroundColor: 'transparent',
+      color: '#ef4444',
+      border: '1px solid #ef4444',
+      padding: '6px 12px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '0.85em'
+    }}
+  >
+    Clear
+  </button>
+
+
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
       <AdminPlayersPage players={players} fetchPlayers={fetchData} setActiveTab={setActiveTab} />
+      
       </> // 👈 就是这里！刚才漏掉了这个闭合标签
     ) : (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
@@ -888,9 +1137,24 @@ onKeyDown={(e) => {
             color: 'white'
           }}>
             <h2 style={{ marginBottom: '10px' }}>Confirm Registration</h2>
-            <p style={{ color: '#94a3b8', marginBottom: '30px' }}>
-              Would you like to register for this event?
-            </p>
+            
+            {/* 🟢 第一步：在这里开始逻辑计算 */}
+            {(() => {
+               const currentEvent = events.find(e => e.id === selectedEventId);
+               const isOpen = isRegistrationOpen(currentEvent?.registration_deadline);
+
+             // 🟢 第二步：根据计算结果返回 UI 
+             return (
+              <>            
+                {isOpen ? (
+                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>
+                   Would you like to register for this event?
+              </p>
+            ) : (
+              <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '30px' }}>
+                ⚠️ Registration has ended for this event.
+              </p>
+            )}
             
             <div style={{ display: 'flex', gap: '15px' }}>
               <button 
@@ -899,18 +1163,32 @@ onKeyDown={(e) => {
               >
                 Cancel
               </button>
+
               <button 
                 onClick={() => {
-    // 1. 关闭弹窗
-    setIsRegistering(false); 
-    // 2. 跳转到我们新创建的报名流程页面
-    setActiveTab('registration_flow'); 
-  }}
-                style={{ ...addBtnStyle, flex: 1, padding: '12px', height: 'auto' }}
+                if (!isOpen) {
+                    alert("Sorry, the deadline has passed!");
+                    setIsRegistering(false);
+                    return;
+                  }
+                  setIsRegistering(false); 
+                  setActiveTab('registration_flow'); 
+                }}
+                style={{ 
+                  ...addBtnStyle, 
+                  flex: 1, 
+                  padding: '12px', 
+                  height: 'auto',
+                  backgroundColor: isOpen ? '#8b5cf6' : '#475569', 
+                  cursor: isOpen ? 'pointer' : 'not-allowed'
+                }}
               >
                 Confirm
               </button>
             </div>
+            </>
+            );
+          })()}
           </div>
         </div>
       )}
