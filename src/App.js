@@ -117,7 +117,7 @@ function EventsPage({ events, onEventClick }) {
   return (
     <div style={{ ...listStyle, position: 'relative', paddingTop: '80px' }}>
       
-    {/* 🚀 放置在此：Logo 包装容器 */}
+      {/* 🚀 Logo 包装容器 */}
       <div className="logo-wrapper" style={{
         position: 'absolute', 
         top: '-100px',          
@@ -144,39 +144,67 @@ function EventsPage({ events, onEventClick }) {
 
       {/* 3. 赛事列表 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '25px', justifyContent: 'flex-start' }}>
-        {events.map((ev) => (
-          <div 
-            key={ev.id} 
-            style={{ ...eventCardStyle, cursor: 'pointer' }} 
-            onClick={() => onEventClick(ev.id)}
-          >
-            {/* 卡片内部的图片（大桥） */}
-            <div style={{ 
-              width: '100%', 
-              height: '200px', 
-              overflow: 'hidden', 
-              borderRadius: '12px 12px 0 0',
-              backgroundColor: '#1e293b' 
-            }}>
-              <img 
-                src="/background1.jpg" 
-                alt={ev.name} 
-                style={imgStyle}  // 👈 重点：确保这一行存在且拼写正确
-              />
-            </div>
+        {events.map((ev) => {
+          
+          // ✨ 第一步：计算逻辑（在此解决 Line 378 警告）
+          const { isExpired, timeLeft } = getEventStatus(ev.registration_deadline);
 
-            {/* 卡片下方的文字信息 */}
-            <div style={infoBoxStyle}>
-              <h3 style={titleStyle}>{ev.name}</h3>
-              <div style={textStyle}>📅 {ev.date}</div>
-              <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
+          // ✨ 第二步：合并后的 return 块
+          return (
+            <div 
+              key={ev.id} 
+              style={{ 
+                ...eventCardStyle, 
+                // 过期变暗，鼠标禁用
+                opacity: isExpired ? 0.6 : 1,
+                cursor: isExpired ? 'not-allowed' : 'pointer' 
+              }} 
+              // 只有未过期时才触发点击
+              onClick={() => !isExpired && onEventClick(ev.id)}
+            >
+              {/* 卡片图片 */}
+              <div style={{ width: '100%', height: '200px', overflow: 'hidden', borderRadius: '12px 12px 0 0', backgroundColor: '#1e293b' }}>
+                <img 
+                  src="/background1.jpg" 
+                  alt={ev.name} 
+                  style={imgStyle} 
+                />
+              </div>
+
+              {/* 卡片下方的文字信息 */}
+              <div style={infoBoxStyle}>
+                <h3 style={titleStyle}>{ev.name}</h3>
+                <div style={textStyle}>📅 {ev.date}</div>
+                <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
+
+              <div style={{ ...textStyle, marginTop: '10px', fontWeight: 'bold', color: isExpired ? '#ef4444' : '#10b981' }}>
+                {ev.registration_deadline && (isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`)}
+              </div>
+
+                {/* ✨ 第三步：倒计时文字显示 */}
+                {ev.registration_deadline && (
+                  <div style={{ 
+                    marginTop: '15px', 
+                    fontSize: '0.9rem', 
+                    fontWeight: 'bold',
+                    color: isExpired ? '#ef4444' : '#10b981', 
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    display: 'inline-block'
+                  }}>
+                    {isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
+
 // 管理后台页
 function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const [newPlayer, setNewPlayer] = useState({ name: '', rank: '', rating: '' });
