@@ -177,11 +177,7 @@ function EventsPage({ events, onEventClick }) {
                 <div style={textStyle}>📅 {ev.date}</div>
                 <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
 
-              <div style={{ ...textStyle, marginTop: '10px', fontWeight: 'bold', color: isExpired ? '#ef4444' : '#10b981' }}>
-                {ev.registration_deadline && (isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`)}
-              </div>
-
-                {/* ✨ 第三步：倒计时文字显示 */}
+              {/* ✨ 第三步：倒计时文字显示 */}
                 {ev.registration_deadline && (
                   <div style={{ 
                     marginTop: '15px', 
