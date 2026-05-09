@@ -89,7 +89,6 @@ const imgStyle = {
   transform: 'none' 
 };
 
-
 // --- 2. 页面子组件 ---
 // 活动页
 function EventsPage({ events, onEventClick }) {
@@ -104,7 +103,8 @@ function EventsPage({ events, onEventClick }) {
     border: '1px solid rgba(157, 125, 250, 0.3)',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
     width: '100%',
-    maxWidth: '400px',
+    height: '200px',
+    maxWidth: '300px',
     transition: 'transform 0.2s'
   };
 
@@ -120,8 +120,8 @@ function EventsPage({ events, onEventClick }) {
       {/* 🚀 Logo 包装容器 */}
       <div className="logo-wrapper" style={{
         position: 'absolute', 
-        top: '-100px',          
-        left: '-120px',         
+        top: '-10px',          
+        left: '-20px',         
         zIndex: 100,          
       }}>
         <img 
@@ -154,7 +154,8 @@ function EventsPage({ events, onEventClick }) {
             <div 
               key={ev.id} 
               style={{ 
-                ...eventCardStyle, 
+                ...eventCardStyle,
+                height: 'auto', // 👈 关键修改：取消固定高度，让比例自然调整 
                 // 过期变暗，鼠标禁用
                 opacity: isExpired ? 0.6 : 1,
                 cursor: isExpired ? 'not-allowed' : 'pointer' 
@@ -163,7 +164,7 @@ function EventsPage({ events, onEventClick }) {
               onClick={() => !isExpired && onEventClick(ev.id)}
             >
               {/* 卡片图片 */}
-              <div style={{ width: '100%', height: '200px', overflow: 'hidden', borderRadius: '12px 12px 0 0', backgroundColor: '#1e293b' }}>
+              <div style={{ width: '100%', height: '150px', overflow: 'hidden', borderRadius: '12px 12px 0 0', backgroundColor: '#1e293b' }}>
                 <img 
                   src="/background1.jpg" 
                   alt={ev.name} 
@@ -171,22 +172,26 @@ function EventsPage({ events, onEventClick }) {
                 />
               </div>
 
-              {/* 卡片下方的文字信息 */}
-              <div style={infoBoxStyle}>
-                <h3 style={titleStyle}>{ev.name}</h3>
-                <div style={textStyle}>📅 {ev.date}</div>
-                <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
+              {/* 📝 下部分：文字信息容器 - 缩小间距 */}
+              <div style={{ 
+                ...infoBoxStyle, 
+                padding: '0px 12px', // 👈 减小上下边距，让文字区变窄
+                gap: '4px'            // 👈 紧凑布局
+              }}>
+                <h3 style={{ ...titleStyle, fontSize: '1.2rem', marginBottom: '4px' }}>{ev.name}</h3>
+                <div style={{ ...textStyle, fontSize: '0.85rem' }}>📅 {ev.date}</div>
+                <div style={{ ...textStyle, fontSize: '0.85rem' }}>📍 {ev.location || 'TBA'}</div>
 
               {/* ✨ 第三步：倒计时文字显示 */}
-                {ev.registration_deadline && (
+              {ev.registration_deadline && (
                   <div style={{ 
-                    marginTop: '15px', 
-                    fontSize: '0.9rem', 
+                    marginTop: '8px', // 👈 减小顶部距离
+                    fontSize: '0.8rem', 
                     fontWeight: 'bold',
                     color: isExpired ? '#ef4444' : '#10b981', 
                     backgroundColor: 'rgba(0,0,0,0.3)',
-                    padding: '6px 12px',
-                    borderRadius: '8px',
+                    padding: '0px 8px', // 👈 缩小标签尺寸
+                    borderRadius: '6px',
                     display: 'inline-block'
                   }}>
                     {isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`}
@@ -238,7 +243,7 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
       <div className="logo-wrapper" style={{
         position: 'fixed',
         top: '20px',
-        left: '60px',
+        left: '120px',
         zIndex: 9999,
         width: '110px',
         height: '110px',
@@ -308,6 +313,7 @@ function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
         user_email: user.email, 
         rank: formData.rank,
         rating: formData.rating,
+        password: formData.password,
         ground: 0 // <--- 重点：初始值为0，代表待分配
       }]);
 
@@ -435,7 +441,7 @@ export default function App() {
     return new Date() < new Date(deadline);
   };
 
-useEffect(() => {
+  useEffect(() => {
   // 1. 同步状态：如果路径回到了首页/赛事页，强制把 activeTab 改回 'events'
   // 这样才能解决点击 Back 后其他标签页点不动的问题
   if (location.pathname === '/events' || location.pathname === '/') {
@@ -602,16 +608,35 @@ const updateEventDeadline = async (eventId, newDeadline) => {
 };
 
   // 5. OGS 验证逻辑
-  const handleOgsVerify = () => {
-    const username = window.prompt("Enter your OGS Username:");
-    const password = window.prompt("Enter your OGS Password:");
+  const handleOgsVerify = async () => {
+    const inputName = window.prompt("Enter your REGISTERED Name:");
+  const inputPassword = window.prompt("Enter your Password:");
 
-    if (username && password) {
-      alert("OGS Verification Successful!");
-      setIsVerified(true);
-      setActiveTab('yourMatches'); 
+    if (inputName && inputPassword) {
+    try {
+      // 2. 去 Supabase 的 registrations 表里验证
+      const { data, error } = await supabase
+        .from('registrations')
+        .select('*')
+        .eq('user_name', inputName)
+        .eq('password', inputPassword)
+        .single(); // 我们只需要一条匹配的数据
+
+      if (error || !data) {
+        alert("❌ Authentication failed: Name or Password incorrect.");
+        return;
+      }
+
+      alert(`✅ Welcome back, ${data.name}!`);
+      setIsVerified(true);       // 开启权限，顶部菜单会出现 YOUR MATCHES
+      setActiveTab('yourMatches'); // 自动跳转到对局页面
+      alert(`✅ Welcome back, ${data.name}!`);
+    } catch (err) {
+      console.error("Login Error:", err);
+      alert("An error occurred during verification.");
     }
-  };
+  }
+};
 
   // 6. 生命周期监听 (初始化)
   useEffect(() => {
@@ -1057,14 +1082,21 @@ onKeyDown={(e) => {
           fontWeight: '600'
         }}
       >
-        🏆 Link OGS Account
+        🏆 Your Matches !
       </button>
             </div>
           </div> /* ✅ 闭合 Dashboard 的内层 div */
         )} {/* ✅ 闭合 activeTab === 'you' 的逻辑 */}
 
+
+
         {/* --- YOUR MATCHES 页面内容 --- */}
+
+
         {activeTab === 'yourMatches' && (
+
+           
+
           <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
             <h1 style={headerStyle}>🏆 Your Matches</h1>
 
@@ -1132,7 +1164,7 @@ onKeyDown={(e) => {
                 onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
                 style={{ color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em' }}
               >
-                ← Logout from OGS
+                ← Logout
               </button>
             </div>
           </div>
