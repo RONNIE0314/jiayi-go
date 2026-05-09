@@ -94,6 +94,7 @@ const imgStyle = {
 function EventsPage({ events, onEventClick }) {
   // 1. 定义内部样式
   const eventCardStyle = {
+    position: 'relative',
     backgroundColor: '#323c50',
     borderRadius: '16px',
     overflow: 'hidden',
@@ -178,21 +179,35 @@ function EventsPage({ events, onEventClick }) {
                 padding: '0px 12px', // 👈 减小上下边距，让文字区变窄
                 gap: '4px'            // 👈 紧凑布局
               }}>
-                <h3 style={{ ...titleStyle, fontSize: '1.2rem', marginBottom: '4px' }}>{ev.name}</h3>
-                <div style={{ ...textStyle, fontSize: '0.85rem' }}>📅 {ev.date}</div>
-                <div style={{ ...textStyle, fontSize: '0.85rem' }}>📍 {ev.location || 'TBA'}</div>
+
+              {/* 📝 修改这里：把 event_title 换成 title */}
+              <h3 style={{ ...titleStyle, fontSize: '1.4rem', marginBottom: '4px', color: '#ffffff' }}>
+              {ev.title || "Untitled Event"} 
+              </h3>
+              <div style={{ ...textStyle, fontSize: '0.95rem' }}>📅 {ev.date}</div>
+              <div style={{ ...textStyle, fontSize: '0.95rem' }}>📍 {ev.location || 'TBA'}</div>
 
               {/* ✨ 第三步：倒计时文字显示 */}
               {ev.registration_deadline && (
                   <div style={{ 
-                    marginTop: '8px', // 👈 减小顶部距离
+                    // 🚀 核心：修改为右下角定位
+                    position: 'absolute', 
+                    bottom: '10px',       // 距离卡片底部 12px
+                    right: '10px',        // 距离卡片右侧 12px
+                    zIndex: 10,           // 确保它浮在文字和背景之上
+                    maxWidth: 'fit-content', // 🚀 确保宽度自适应内容
+                    marginLeft: '10px',      // 👈 与左侧文字保持一点距离
+                    marginTop: '-5px', // 👈 减小顶部距离
                     fontSize: '0.8rem', 
                     fontWeight: 'bold',
                     color: isExpired ? '#ef4444' : '#10b981', 
                     backgroundColor: 'rgba(0,0,0,0.3)',
-                    padding: '0px 8px', // 👈 缩小标签尺寸
+                    padding: '2px 8px', // 👈 缩小标签尺寸
                     borderRadius: '6px',
-                    display: 'inline-block'
+                    display: 'flex',
+                    alignItems: 'center',
+                    whiteSpace: 'nowrap',
+                    verticalAlign: 'middle'  // 👈 对齐文字中心
                   }}>
                     {isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`}
                   </div>
@@ -482,7 +497,7 @@ export default function App() {
     try {
       // 同时获取三项数据
       const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
-      const { data: e } = await supabase.from('events').select('*');
+      const { data: e } = await supabase.from('events').select('*').order('date', { ascending: false });
       const { data: m, error: mError } = await supabase
         .from('messages')
         .select('*')
