@@ -323,8 +323,8 @@ function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
       .insert([{
         event_id: String(selectedEventId),
         event_title: selectedEvent?.name,
-        user_id: user.id,
-        user_name: formData.username,
+        player_id: user.id,
+        player_name: formData.username,
         user_email: user.email, 
         rank: formData.rank,
         rating: formData.rating,
@@ -496,7 +496,7 @@ export default function App() {
   const fetchData = async () => {
     try {
       // 同时获取三项数据
-      const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
+      const { data: p } = await supabase.from('players').select('player_id, player_name, rank, rating').order('rating', { ascending: false });
       const { data: e } = await supabase.from('events').select('*').order('date', { ascending: false });
       const { data: m, error: mError } = await supabase
         .from('messages')
@@ -607,7 +607,10 @@ const updateEventDeadline = async (eventId, newDeadline) => {
     }
 
     const exportData = regData.map(reg => ({
-      'Player Name': reg.user_name,
+      'Player_Name': reg.user_name,
+      'player_ID': reg.user_id,
+      'Rank': reg.rank,
+      'Rating': reg.rating,
       'Registration Time': new Date(reg.created_at).toLocaleString(),
       'Event ID': reg.event_id
     }));
@@ -624,7 +627,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
 
   // 5. OGS 验证逻辑
   const handleOgsVerify = async () => {
-    const inputName = window.prompt("Enter your REGISTERED Name:");
+  const inputName = window.prompt("Enter your REGISTERED Name:");
   const inputPassword = window.prompt("Enter your Password:");
 
     if (inputName && inputPassword) {
