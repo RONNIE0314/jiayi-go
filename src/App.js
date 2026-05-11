@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -29,16 +29,19 @@ const activeTabStyle = { color: '#000000', cursor: 'pointer', borderBottom: '2px
 
 const listStyle = { display: 'flex', flexDirection: 'column', gap: '15px' };
 const cardStyle = { 
-  display: 'flex', 
-  // 关键 1：改为 column，让图片在上面，文字在下面，这样旋转才好看
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
   flexDirection: 'column', 
   backgroundColor: '#1e293b', 
-  padding: '0', // 把 padding 设为 0，让图片能撑满边框
+  padding: '12px 20px', // 把 padding 设为 0，让图片能撑满边框
   borderRadius: '12px', 
   border: '1px solid #334155',
+  marginBottom: '10px',       // 每一行之间留点间隙
+  width: '100%',
   overflow: 'hidden' // 关键 2：剪掉旋转后多出来的图片边缘
 };
-const infoStyle = { display: 'flex', gap: '24px', alignItems: 'center' };
+const infoStyle = { display: 'flex', gap: '12px', alignItems: 'center', flex: 1 };
 const idStyle = { color: '#475569', fontSize: '0.9em' };
 const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
 const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' };
@@ -228,34 +231,41 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const handleAdd = async () => {
     if (!newPlayer.name || !newPlayer.rank) return alert("Please fill Name and Rank");
     const { error } = await supabase.from('players').insert([{ 
-      name: newPlayer.name, 
+      player_name: newPlayer.name, 
       rank: newPlayer.rank, 
       rating: parseInt(newPlayer.rating) || 0 
     }]);
     if (!error) {
       setNewPlayer({ name: '', rank: '', rating: '' });
       fetchPlayers();
+    } else {
+      alert("Add failed: " + error.message);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this player?")) {
-      const { error } = await supabase.from('players').delete().eq('id', id);
-      if (!error) fetchPlayers();
+      const { error } = await supabase.from('players').delete().eq('player_id', id);
+      if (!error) {
+        // ✨ 重点修复：因为子组件没有 setPlayers，我们直接调用父组件传来的 fetchPlayers
+        fetchPlayers(); 
+      } else {
+        alert("Delete failed: " + error.message);
+      }
     }
   };
 
   return (
-    <div style={{ ...containerStyle,  
-                  ...listStyle, 
-                  position: 'relative', 
-                  paddingTop: '160px',
-                  display: 'block', 
-                  textAlign: 'left'
-                }}>
+    <div style={{ 
+      ...containerStyle,  
+      position: 'relative', 
+      paddingTop: '160px',
+      minHeight: '100vh', // 确保背景铺满
+      display: 'block' 
+    }}>
       
       {/* 🚀 放置在此：Logo 包装容器 */}
-      <div className="logo-wrapper" style={{
+    <div className="logo-wrapper" style={{
         position: 'fixed',
         top: '20px',
         left: '120px',
@@ -264,7 +274,7 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
         height: '110px',
         margin: 0,
         pointerEvents: 'auto'
-      }}>
+    }}>
         <img 
           src="/logo.jpg" 
           alt="JIAYI GO BRAND"
@@ -295,11 +305,37 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
       </div>
       <div style={listStyle}>
         {players.map(p => (
-          <div key={p.id} style={cardStyle}>
+          <div key={p.player_id} style={{
+        ...cardStyle, // 保留原有的背景色和边框
+        // 🚀 强制开启 Flex 布局并两端对齐
+        display: 'flex',
+        flexDirection: 'row',       // 强制横向
+        justifyContent: 'space-between', // 强制名字在左，按钮在右
+        alignItems: 'center',       // 垂直居中
+        padding: '12px 20px',       // 强制给内边距
+        marginBottom: '10px',
+        width: '100%',
+        boxSizing: 'border-box', // 👈 极其重要：防止 padding 把按钮挤出屏幕
+        overflow: 'visible'      // 👈 确保按钮溢出时也能看到（虽然不应该溢出）
+        }}>
             <div style={infoStyle}>
-              <span style={nameStyle}>{p.name}</span>
-              <span style={rankStyle}>{p.rank}</span></div>
-            <button style={deleteBtnStyle} onClick={() => handleDelete(p.id)}>DELETE</button>
+              <span style={nameStyle}>{p.player_name}</span>
+              <span style={{ 
+          backgroundColor: 'rgba(139, 92, 246, 0.2)', // 紫色背景
+          color: '#a78bfa',
+          padding: '2px 8px',
+          borderRadius: '4px',
+          fontSize: '0.85em',
+          fontWeight: 'bold',
+          border: '1px solid rgba(139, 92, 246, 0.3)'
+        }}>{p.rank}</span></div>
+            <button style={{
+          ...deleteBtnStyle,
+          // 🚀 强制样式
+          padding: '6px 15px',
+          backgroundColor: '#ef4444', // 鲜红色
+          marginLeft: '20px' // 与文字保持距离
+        }} onClick={() => handleDelete(p.player_id)}>DELETE</button>
           </div>
         ))}
       </div>
@@ -310,21 +346,22 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
 // --- 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示) ---
 function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
   const [step, setStep] = useState(0); // 0: 表单, 1: 动画, 2: 结果
-  const [formData, setFormData] = useState({ username: '', rank: '', rating: '', password: '' });
+  const [formData, setFormData] = useState({ player_name: '', rank: '', rating: '', password: '' });
   
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const handleStartGrouping = async (e) => {
     e.preventDefault();
   try {
     setStep(1); // 进入动画
-
+  // 1. 获取当前登录用户的 UUID
+  const currentUserId = user.id; // 这就是 Supabase Auth 的唯一标识符
   const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
         event_id: String(selectedEventId),
         event_title: selectedEvent?.name,
-        player_id: user.id,
-        player_name: formData.username,
+        player_id: currentUserId,
+        player_name: formData.player_name,
         user_email: user.email, 
         rank: formData.rank,
         rating: formData.rating,
@@ -359,7 +396,7 @@ function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
       </div>
       <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
       <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <input style={inputStyle} placeholder="Go Username" required onChange={e => setFormData({...formData, username: e.target.value})} />
+        <input style={inputStyle} placeholder="Go Playername" required onChange={e => setFormData({...formData, player_name: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
         <input style={inputStyle} placeholder="Current Rating" required onChange={e => setFormData({...formData, rating: e.target.value})} />
         <input style={{ ...inputStyle, opacity: 0.7, backgroundColor: '#1e293b' }} value={user?.email || ''} readOnly />
@@ -442,11 +479,44 @@ const getEventStatus = (deadline) => {
 export default function App() {
   // 1. 状态定义区 (确保顺序正确，先定义再使用)
   const [activeTab, setActiveTab] = useState('events');
+
+  // --- 1. 把这个函数放在 App 组件的最上方 ---
+  const exportMatchResults = async () => {
+  try {
+    const { data: matches, error } = await supabase
+      .from('user_matches')
+      .select('*')
+      .order('round', { ascending: true });
+
+    if (error) throw error;
+    if (!matches || matches.length === 0) return alert("No match data found");
+
+    const exportData = matches.map(m => ({
+      "Round": `Round ${m.round}`,
+      "Player": m.player_name,
+      "Opponent": m.opponent_name,
+      "Result": m.result || "Pending",
+      "Time": m.match_time ? new Date(m.match_time).toLocaleString() : "TBA"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "MatchResults");
+    XLSX.writeFile(wb, `Jiayi_Go_Results_${new Date().toISOString().slice(0,10)}.xlsx`);
+  } catch (err) {
+    alert("Export failed: " + err.message);
+  }
+  };
+
   const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
+  const [verifiedPlayerId, setVerifiedPlayerId] = useState(null);
   
+  // ✨ 就放在这里：定义对局状态
+  const [matches, setMatches] = useState({ next: null, history: [] });
+
   // ✨ 插入点 1：注册相关的状态
   const [isRegistering, setIsRegistering] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -477,8 +547,8 @@ export default function App() {
   // 留言状态：包含默认欢迎词和输入框文字
   const [inputText, setInputText] = useState(""); 
   const [messages, setMessages] = useState([
-    { id: 1, user_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
-    { id: 2, user_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
+    { id: 1, player_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
+    { id: 2, player_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
   ]);
 
   const handleEventClick = (eventId) => {
@@ -493,9 +563,9 @@ export default function App() {
   };
 
   // 2. 统一数据获取函数 (抓取玩家、活动、留言)
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
-      // 同时获取三项数据
+      // 同时获取基础数据：玩家、活动、留言
       const { data: p } = await supabase.from('players').select('player_id, player_name, rank, rating').order('rating', { ascending: false });
       const { data: e } = await supabase.from('events').select('*').order('date', { ascending: false });
       const { data: m, error: mError } = await supabase
@@ -504,16 +574,39 @@ export default function App() {
         .order('created_at', { ascending: false });
 
       if (mError) throw mError;
-
       if (p) setPlayers(p);
       if (e) setEvents(e);
-      // 如果数据库有留言，则覆盖默认显示的留言
-      if (m && m.length > 0) setMessages(m); 
+      if (m && m.length > 0) setMessages(m);
+      
+      // ✨ 关键逻辑：获取对局信息
+      // 优先看有没有通过 OGS 密码验证的 ID (verifiedPlayerId)，没有则看 Google 登录的 ID (user?.id)
+      const finalId = verifiedPlayerId || user?.id;
+
+      if (finalId) {
+        const { data: mData, error: mError } = await supabase
+          .from('user_matches')
+          .select('*')
+          .eq('player_id', finalId) 
+          .order('round', { ascending: false });
+
+        if (!mError && mData) {
+          setMatches({
+            next: mData[0] ? {
+             ...mData[0],
+             displayTime: mData[0].match_time 
+             } : null,
+            history: mData.slice(1) || []
+          });
+        }
+      } else {
+        // 如果既没登录也没验证，清空对局信息
+        setMatches({ next: null, history: [] });
+      }
 
     } catch (error) {
       console.error("❌ 数据获取失败:", error.message);
     }
-  };
+  }, [user, verifiedPlayerId]); // ✨ 核心：必须依赖这两个 ID，任何一个变化都要重新抓数据 ✨ 注意这里的闭合：箭头函数结束 }，然后是 useCallback 的结束 )
 
  // ✨ 新增：管理员更新赛事截止日期的函数
 const updateEventDeadline = async (eventId, newDeadline) => {
@@ -577,8 +670,8 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         .insert([
           { 
             content: inputText,
-            user_name: user.email,
-            user_id: user.id
+            player_name: user.email,
+            player_id: user.id
           }
         ]);
 
@@ -607,8 +700,8 @@ const updateEventDeadline = async (eventId, newDeadline) => {
     }
 
     const exportData = regData.map(reg => ({
-      'Player_Name': reg.user_name,
-      'player_ID': reg.user_id,
+      'player_name': reg.player_name,
+      'player_id': reg.player_id,
       'Rank': reg.rank,
       'Rating': reg.rating,
       'Registration Time': new Date(reg.created_at).toLocaleString(),
@@ -636,7 +729,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
       const { data, error } = await supabase
         .from('registrations')
         .select('*')
-        .eq('user_name', inputName)
+        .eq('player_name', inputName)
         .eq('password', inputPassword)
         .single(); // 我们只需要一条匹配的数据
 
@@ -644,11 +737,18 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         alert("❌ Authentication failed: Name or Password incorrect.");
         return;
       }
+      // ✨ 关键修改：保存验证成功的 player_id
+        setVerifiedPlayerId(data.player_id);
+      
+      alert(`✅ Welcome back, ${data.player_name}!`);
 
-      alert(`✅ Welcome back, ${data.name}!`);
       setIsVerified(true);       // 开启权限，顶部菜单会出现 YOUR MATCHES
       setActiveTab('yourMatches'); // 自动跳转到对局页面
-      alert(`✅ Welcome back, ${data.name}!`);
+
+      // 3. ✨ 关键：手动触发一次数据拉取
+        // 这样可以确保切换过去后，fetchData 能够立即运行
+        await fetchData();
+
     } catch (err) {
       console.error("Login Error:", err);
       alert("An error occurred during verification.");
@@ -675,7 +775,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         if (subscription) subscription.unsubscribe();
       };
     }
-  }, []);
+  }, [fetchData]);
 
   // --- 后面接你的 return (JSX) 即可 ---
 
@@ -738,7 +838,7 @@ return (
               if (tab === 'yourMatches') return isVerified;
               return true;
             })
-.map(t => (
+        .map(t => (
               <span key={t} 
                 style={{
                   ...(activeTab === t ? activeTabStyle : tabStyle),
@@ -775,18 +875,65 @@ return (
         />
       )}
         {activeTab === 'players' && (
-          <div style={listStyle}>
+          <div style={{ 
+                ...listStyle, // 引用旧样式
+                width: '100%',
+                maxWidth: '750px', // ⭐ 关键：限制蓝条的最大宽度（750px 或 800px 比较合适围棋项目）
+                margin: '0 auto',  // ⭐ 关键：让整个列表水平居中
+                display: 'flex',   // ⭐ 如果 listStyle 没有，加上这个
+                flexDirection: 'column',
+                gap: '8px' // ⭐ 确保卡片之间有间距
+              }}>
             <h1 style={headerStyle}>Rankings</h1>
             {players.map(p => (
-              <div key={p.id} style={cardStyle}>
-                <div style={infoStyle}>
-                  <span style={idStyle}>#{p.id.toString().slice(0, 4)}</span>
-                  <span style={nameStyle}>{p.name}</span>
-                </div>
-                <div style={infoStyle}>
-                  <span style={rankStyle}>{p.rank}</span>
-                  <span style={ratingStyle}>{p.rating} pts</span>
-                </div>
+              <div key={p.player_id} style={{ 
+                ...cardStyle,
+                display: 'flex',  // 如果你用了 CSS 文件，这里加 important 强行覆盖
+                flexDirection: 'row',
+                justifyContent: 'space-between', // ⭐ 关键：强制两端对齐
+                alignItems: 'center',            // ⭐ 关键：纵向居中
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 20px', // 稍微增加内边距
+                marginBottom: '10px'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '15px', 
+                }}>
+                  <span style={{ 
+                    ...idStyle,
+                    color: '#94a3b8', // 调亮 ID 颜色，看得清
+                    opacity: 0.7, 
+                    fontSize: '0.9rem',
+                    fontFamily: 'monospace' // 使用等宽字体
+                  }}>
+                    #{p.player_id.toString().slice(0, 4)}
+                  </span>
+                  <span style={{ 
+                    ...nameStyle, 
+                    fontSize: '1.2rem', 
+                    fontWeight: 'bold',
+                    color: '#fff' 
+                  }}>
+            {p.player_name}
+          </span>
+        </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <span style={{
+            ...rankStyle,
+            backgroundColor: 'rgba(79, 70, 229, 0.2)', // 给段位加个微弱背板
+            padding: '2px 8px',
+            borderRadius: '4px',
+            minWidth: '35px',
+            textAlign: 'center'
+          }}>{p.rank}</span>
+          <span style={{ ...ratingStyle, color: '#94a3b8' }}>
+            {p.rating} <small style={{ opacity: 0.8 }}>pts</small>
+          </span>
+        </div>
+
               </div>
             ))}
           </div>
@@ -808,8 +955,8 @@ return (
             onClick={() => {
               // 这里直接调用导出逻辑
               const exportData = players.map(p => ({
-                'Player ID': p.id,
-                'Name': p.name,
+                'player_id': p.player_id,
+                'player_name': p.player_name,
                 'Rank': p.rank,
                 'Rating': p.rating
               }));
@@ -827,10 +974,14 @@ return (
               cursor: 'pointer',
               fontWeight: 'bold',
               fontSize: '0.85em',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s'
             }}
           >
-            📥 Export Excel
+            📥 Export All Players
           </button>
         </div>      
 
@@ -858,6 +1009,27 @@ return (
         📥 {event.title || 'Unnamed Event'}
       </button>
     ))}
+
+      {/* 2. ✨ 在这里插入你的“比赛结果导出”蓝色按钮 */}
+    <button 
+      onClick={exportMatchResults} 
+      style={{
+        backgroundColor: '#1e40af', // 蓝色背景
+        color: 'white',
+        padding: '6px 12px',
+        borderRadius: '6px',
+        border: 'none',
+        cursor: 'pointer',
+        fontSize: '0.8em',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
+        fontWeight: 'bold'
+      }}
+    >
+      🏆 Export Match Results
+    </button>
+
   </div>
 </div>
  
@@ -1111,78 +1283,148 @@ onKeyDown={(e) => {
         {/* --- YOUR MATCHES 页面内容 --- */}
 
 
-        {activeTab === 'yourMatches' && (
+{activeTab === 'yourMatches' && (
+  <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
+    <h1 style={headerStyle}>🏆 Your Matches</h1>
 
-           
+    <h3 style={sectionTitleStyle}>NEXT MATCH</h3>
+    <div style={nextMatchCardStyle}>
+      <div style={roundBadgeStyle}>Round {matches.next?.round || "2"}</div>
+      
+      <div style={matchInfoStyle}>
+        <div style={blackStoneIcon} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+          <div style={playerNameStyle}>
+             {matches.next?.opponent_name || "TBA"} 
+             <span style={rankPillStyle}>{matches.next?.opponent_rank || "N/A"}</span>
+          </div>
+    
+          {/* ✨ 修改点 1：把写死的邮箱替换为数据库字段 */}
+          <div style={{ 
+            fontSize: '0.85em', 
+            color: '#64748b', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px' 
+          }}>
+            📧 <a 
+              href={`mailto:${matches.next?.opponent_email || ''}`} 
+              style={{ color: '#3b82f6', textDecoration: 'none' }}
+            >
+              {matches.next?.opponent_email || "No email provided"}
+            </a>
+          </div>
+        </div>
+      </div>
 
-          <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
-            <h1 style={headerStyle}>🏆 Your Matches</h1>
-
-            <h3 style={sectionTitleStyle}>NEXT MATCH</h3>
-            <div style={nextMatchCardStyle}>
-              <div style={roundBadgeStyle}>Round 2</div>
-              
-              <div style={matchInfoStyle}>
-                <div style={blackStoneIcon} />
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                <div style={playerNameStyle}>张三 <span style={rankPillStyle}>17k</span></div>
-            
-    {/* 2. 🚀 新增：对手邮箱 (紧贴在名字下面) */}
-    <div style={{ 
-      fontSize: '0.85em', 
-      color: '#64748b', 
-      display: 'flex', 
-      alignItems: 'center', 
-      gap: '4px' 
-    }}>
-      📧 <a 
-        href="mailto:opponent@example.com" 
-        style={{ color: '#3b82f6', textDecoration: 'none' }}
-      >
-        opponent@example.com
-      </a>
+      <div style={matchTimeStyle}>
+        {/* ✨ 修改点 2：把写死的 Apr 16 9:00 pm 替换为动态时间 */}
+        <div style={{ fontWeight: 'bold' }}>
+          {matches.next?.match_time 
+            ? new Date(matches.next.match_time).toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+              })
+            : "TBD"}
+        </div>
+        
+        <a 
+          href={matches.next?.ogs_url || "https://online-go.com/play"} 
+          target="_blank" 
+          rel="noreferrer" 
+          style={{
+            ...playBtnStyle, 
+            textDecoration: 'none', 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            marginTop: '8px'
+          }}
+        >
+          ✅ Let's Play!
+        </a>
+      </div>
     </div>
-  </div>
-</div>
 
-              <div style={matchTimeStyle}>
-                <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
-                
-                <a 
-    href="https://online-go.com/play" 
-    target="_blank" 
-    rel="noreferrer" 
-    style={{
-      ...playBtnStyle, 
-      textDecoration: 'none', 
-      display: 'inline-flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      marginTop: '8px'
-    }}
-  >
-    ✅ Let's Play!
-  </a>
-              
-              </div>
-            </div>
-
+{/* --- HISTORY 部分 --- */}
             <h3 style={sectionTitleStyle}>HISTORY</h3>
-            <div style={historyCardStyle}>
-              <div style={smallRoundBadgeStyle}>Round 1</div>
-              <div style={whiteStoneIcon} />
-              <div style={{ flex: 1, marginLeft: '15px', color: '#333' }}>
-                <strong>Greg</strong> <span style={noResultBadgeStyle}>No Result</span>
-              </div>
-              <div style={historyTimeStyle}>Apr 9</div>
-            </div>
+            
+            {matches.history && matches.history.length > 0 ? (
+              matches.history.map((h, index) => (
+                <div key={h.id || index} style={{...historyCardStyle, marginBottom: '10px'}}>
+                  <div style={smallRoundBadgeStyle}>Round {h.round}</div>
+                  <div style={h.is_black ? blackStoneIcon : whiteStoneIcon} />
+                  
+                  <div style={{ flex: 1, marginLeft: '15px', color: '#333' }}>
+                    <strong style={{ fontSize: '1.05rem' }}>{h.opponent_name}</strong> 
+                    
+                    {/* ✨ 动态显示数据库中的结果 */}
+                    <span style={{
+                      ...noResultBadgeStyle,
+                      marginLeft: '10px',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.85em',
+                      // 如果有结果显示绿色背景，没结果显示灰色
+                      backgroundColor: h.result ? '#dcfce7' : '#f1f5f9',
+                      color: h.result ? '#166534' : '#64748b',
+                      border: h.result ? '1px solid #bbf7d0' : '1px solid #e2e8f0'
+                    }}>
+                      {h.result || "Pending"}
+                    </span>
+                  </div>
 
-            <div style={{ marginTop: '40px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+                  <div style={historyTimeStyle}>
+                    {h.match_time 
+                      ? new Date(h.match_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : "Past"}
+                  </div>
+                </div>
+              ))
+            ) : (
+              /* 如果数据库没有历史对局，显示这个提示 */
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '30px', 
+                color: '#94a3b8', 
+                backgroundColor: '#f1f5f9', 
+                borderRadius: '12px',
+                border: '1px dashed #cbd5e1'
+              }}>
+                No match history found.
+              </div>
+            )}
+
+            {/* --- 底部退出区域 --- */}
+            <div style={{ 
+              marginTop: '40px', 
+              textAlign: 'center', 
+              borderTop: '1px solid #e2e8f0', 
+              paddingTop: '20px' 
+            }}>
               <button 
-                onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
-                style={{ color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em' }}
+                onClick={() => { 
+                  setIsVerified(false); 
+                  setVerifiedPlayerId(null); // 清除验证状态
+                  setActiveTab('you'); 
+                }} 
+                style={{ 
+                  color: '#e61d2b', 
+                  border: 'none', 
+                  background: 'none', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: '0.9em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  gap: '5px'
+                }}
               >
-                ← Logout
+                <span>←</span> LOGOUT & SWITCH ACCOUNT
               </button>
             </div>
           </div>
