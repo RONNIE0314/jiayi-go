@@ -21,3 +21,6 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# 在 misc 或者 testing 下面随便找个地方
+.env
