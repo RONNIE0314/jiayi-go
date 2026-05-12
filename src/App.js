@@ -574,9 +574,15 @@ export default function App() {
         .order('created_at', { ascending: false });
 
       if (mError) throw mError;
-      if (p) setPlayers(p);
-      if (e) setEvents(e);
-      if (m && m.length > 0) setMessages(m);
+      if (p) {
+        setPlayers(prev => JSON.stringify(prev) === JSON.stringify(p) ? prev : p);
+      }
+      if (e) {
+        setEvents(prev => JSON.stringify(prev) === JSON.stringify(e) ? prev : e);
+      }
+      if (m && m.length > 0) {
+        setMessages(prev => JSON.stringify(prev) === JSON.stringify(m) ? prev : m);
+      }
       
       // ✨ 关键逻辑：获取对局信息
       // 优先看有没有通过 OGS 密码验证的 ID (verifiedPlayerId)，没有则看 Google 登录的 ID (user?.id)
@@ -589,18 +595,24 @@ export default function App() {
           .eq('player_id', finalId) 
           .order('round', { ascending: false });
 
-        if (!mError && mData) {
-          setMatches({
+if (!mError && mData) {
+          // 先构造出新的对象
+          const newMatches = {
             next: mData[0] ? {
-             ...mData[0],
-             displayTime: mData[0].match_time 
-             } : null,
+              ...mData[0],
+              displayTime: mData[0].match_time 
+            } : null,
             history: mData.slice(1) || []
-          });
+          };
+
+          // ✨ 同样使用对比逻辑，防止 setMatches 触发多余渲染
+          setMatches(prev => 
+            JSON.stringify(prev) === JSON.stringify(newMatches) ? prev : newMatches
+          );
         }
       } else {
-        // 如果既没登录也没验证，清空对局信息
-        setMatches({ next: null, history: [] });
+        // 如果没有 ID，确保只在 matches 不为空时才清空
+        setMatches(prev => (prev.next === null && prev.history.length === 0) ? prev : { next: null, history: [] });
       }
 
     } catch (error) {
@@ -670,8 +682,8 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         .insert([
           { 
             content: inputText,
-            player_name: user.email,
-            player_id: user.id
+            user_name: user.email,
+            user_id: user.id
           }
         ]);
 
@@ -775,7 +787,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         if (subscription) subscription.unsubscribe();
       };
     }
-  }, [fetchData]);
+  }, []);
 
   // --- 后面接你的 return (JSX) 即可 ---
 
