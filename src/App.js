@@ -570,19 +570,21 @@ export default function App() {
       const { data: e } = await supabase.from('events').select('*').order('date', { ascending: false });
       const { data: m, error: mError } = await supabase
         .from('messages')
-        .select('*')
+        .select(`
+          id,
+          content,
+          created_at,
+          user_id,
+          profiles (
+            username
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (mError) throw mError;
-      if (p) {
-        setPlayers(prev => JSON.stringify(prev) === JSON.stringify(p) ? prev : p);
-      }
-      if (e) {
-        setEvents(prev => JSON.stringify(prev) === JSON.stringify(e) ? prev : e);
-      }
-      if (m && m.length > 0) {
-        setMessages(prev => JSON.stringify(prev) === JSON.stringify(m) ? prev : m);
-      }
+      if (p) setPlayers(p);
+      if (e) setEvents(e);
+      if (m && m.length > 0) setMessages(m);
       
       // ✨ 关键逻辑：获取对局信息
       // 优先看有没有通过 OGS 密码验证的 ID (verifiedPlayerId)，没有则看 Google 登录的 ID (user?.id)
@@ -595,24 +597,18 @@ export default function App() {
           .eq('player_id', finalId) 
           .order('round', { ascending: false });
 
-if (!mError && mData) {
-          // 先构造出新的对象
-          const newMatches = {
+        if (!mError && mData) {
+          setMatches({
             next: mData[0] ? {
-              ...mData[0],
-              displayTime: mData[0].match_time 
-            } : null,
+             ...mData[0],
+             displayTime: mData[0].match_time 
+             } : null,
             history: mData.slice(1) || []
-          };
-
-          // ✨ 同样使用对比逻辑，防止 setMatches 触发多余渲染
-          setMatches(prev => 
-            JSON.stringify(prev) === JSON.stringify(newMatches) ? prev : newMatches
-          );
+          });
         }
       } else {
-        // 如果没有 ID，确保只在 matches 不为空时才清空
-        setMatches(prev => (prev.next === null && prev.history.length === 0) ? prev : { next: null, history: [] });
+        // 如果既没登录也没验证，清空对局信息
+        setMatches({ next: null, history: [] });
       }
 
     } catch (error) {
@@ -682,7 +678,6 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         .insert([
           { 
             content: inputText,
-            user_name: user.email,
             user_id: user.id
           }
         ]);
@@ -1205,15 +1200,24 @@ return (
   flexDirection: 'column',
   gap: '15px'
 }}>
-  {/* ✨ 这一步最关键：让 React 根据 messages 数组的内容自动画出留言条 */}
+  {/* ✨ 修正：将内容合并到一个根 div 中 */}
   {messages.map((msg) => (
     <div key={msg.id} style={messageContainerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user_name || msg.user}</span>
-        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
+        {/* 重点：从关联的 profiles 对象中取 username */}
+        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>
+          {msg.profiles?.username || '未知用户'}
+        </span>
+        
+        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
+          {msg.created_at 
+            ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+            : '刚刚'}
+        </span>
       </div>
+      
       <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>
-        {msg.content || msg.text}
+        {msg.content}
       </p>
     </div>
   ))}
