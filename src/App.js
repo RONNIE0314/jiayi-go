@@ -479,7 +479,7 @@ useEffect(() => {
         .insert([
           { 
             content: inputText,
-            user_name: user.email,
+            user_name: user.user_metadata.full_name ||user.email,
             user_id: user.id
           }
         ]);
