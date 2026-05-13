@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
@@ -29,19 +29,16 @@ const activeTabStyle = { color: '#000000', cursor: 'pointer', borderBottom: '2px
 
 const listStyle = { display: 'flex', flexDirection: 'column', gap: '15px' };
 const cardStyle = { 
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
+  display: 'flex', 
+  // 关键 1：改为 column，让图片在上面，文字在下面，这样旋转才好看
   flexDirection: 'column', 
   backgroundColor: '#1e293b', 
-  padding: '12px 20px', // 把 padding 设为 0，让图片能撑满边框
+  padding: '0', // 把 padding 设为 0，让图片能撑满边框
   borderRadius: '12px', 
   border: '1px solid #334155',
-  marginBottom: '10px',       // 每一行之间留点间隙
-  width: '100%',
   overflow: 'hidden' // 关键 2：剪掉旋转后多出来的图片边缘
 };
-const infoStyle = { display: 'flex', gap: '12px', alignItems: 'center', flex: 1 };
+const infoStyle = { display: 'flex', gap: '24px', alignItems: 'center' };
 const idStyle = { color: '#475569', fontSize: '0.9em' };
 const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
 const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' };
@@ -97,7 +94,6 @@ const imgStyle = {
 function EventsPage({ events, onEventClick }) {
   // 1. 定义内部样式
   const eventCardStyle = {
-    position: 'relative',
     backgroundColor: '#323c50',
     borderRadius: '16px',
     overflow: 'hidden',
@@ -107,8 +103,7 @@ function EventsPage({ events, onEventClick }) {
     border: '1px solid rgba(157, 125, 250, 0.3)',
     boxShadow: '0 10px 30px rgba(0, 0, 0, 0.4)',
     width: '100%',
-    height: '200px',
-    maxWidth: '300px',
+    maxWidth: '400px',
     transition: 'transform 0.2s'
   };
 
@@ -119,111 +114,65 @@ function EventsPage({ events, onEventClick }) {
 
   // 2. 渲染页面
   return (
-    <div style={{ ...listStyle, position: 'relative', paddingTop: '80px' }}>
+    <div style={listStyle}>
       
-      {/* 🚀 Logo 包装容器 */}
-      <div className="logo-wrapper" style={{
-        position: 'absolute', 
-        top: '-10px',          
-        left: '-20px',         
-        zIndex: 100,          
-      }}>
-        <img 
-          src="/logo.jpg" 
-          alt="JIAYI GO BRAND" 
-          className="main-logo"
-          style={{ 
-            height: '110px', width: '110px', borderRadius: '50%',
-            objectFit: 'cover',
-            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
-            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
-            border: '2px solid rgba(255, 255, 255, 0.3)',
-            transition: 'transform 0.2s'
-          }} 
-          onError={(e) => { e.target.style.display = 'none'; }} 
-        />
-      </div>
+      {/* 🚀 1. 全局 LOGO：容器 */}
+<div className="logo-wrapper">
+  <img 
+    src="/logo.jpg"
+    alt="JIAYI GO BRAND" 
+    className="main-logo"
+    style={{ 
+      height: '110px', 
+      width: '110px',
+      borderRadius: '50%',
+      objectFit: 'cover',
+      filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
+      boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
+      border: '2px solid rgba(255, 255, 255, 0.3)'
+    }} 
+    onError={(e) => { e.target.style.display = 'none'; }} 
+  />
+</div>
 
+      {/* 2. 标题 */}
       <h1 style={headerStyle}>Upcoming Events</h1>
 
       {/* 3. 赛事列表 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '25px', justifyContent: 'flex-start' }}>
-        {events.map((ev) => {
-          
-          // ✨ 第一步：计算逻辑（在此解决 Line 378 警告）
-          const { isExpired, timeLeft } = getEventStatus(ev.registration_deadline);
-
-          // ✨ 第二步：合并后的 return 块
-          return (
-            <div 
-              key={ev.id} 
-              style={{ 
-                ...eventCardStyle,
-                height: 'auto', // 👈 关键修改：取消固定高度，让比例自然调整 
-                // 过期变暗，鼠标禁用
-                opacity: isExpired ? 0.6 : 1,
-                cursor: isExpired ? 'not-allowed' : 'pointer' 
-              }} 
-              // 只有未过期时才触发点击
-              onClick={() => !isExpired && onEventClick(ev.id)}
-            >
-              {/* 卡片图片 */}
-              <div style={{ width: '100%', height: '150px', overflow: 'hidden', borderRadius: '12px 12px 0 0', backgroundColor: '#1e293b' }}>
-                <img 
-                  src="/background1.jpg" 
-                  alt={ev.name} 
-                  style={imgStyle} 
-                />
-              </div>
-
-              {/* 📝 下部分：文字信息容器 - 缩小间距 */}
-              <div style={{ 
-                ...infoBoxStyle, 
-                padding: '0px 12px', // 👈 减小上下边距，让文字区变窄
-                gap: '4px'            // 👈 紧凑布局
-              }}>
-
-              {/* 📝 修改这里：把 event_title 换成 title */}
-              <h3 style={{ ...titleStyle, fontSize: '1.4rem', marginBottom: '4px', color: '#ffffff' }}>
-              {ev.title || "Untitled Event"} 
-              </h3>
-              <div style={{ ...textStyle, fontSize: '0.95rem' }}>📅 {ev.date}</div>
-              <div style={{ ...textStyle, fontSize: '0.95rem' }}>📍 {ev.location || 'TBA'}</div>
-
-              {/* ✨ 第三步：倒计时文字显示 */}
-              {ev.registration_deadline && (
-                  <div style={{ 
-                    // 🚀 核心：修改为右下角定位
-                    position: 'absolute', 
-                    bottom: '10px',       // 距离卡片底部 12px
-                    right: '10px',        // 距离卡片右侧 12px
-                    zIndex: 10,           // 确保它浮在文字和背景之上
-                    maxWidth: 'fit-content', // 🚀 确保宽度自适应内容
-                    marginLeft: '10px',      // 👈 与左侧文字保持一点距离
-                    marginTop: '-5px', // 👈 减小顶部距离
-                    fontSize: '0.8rem', 
-                    fontWeight: 'bold',
-                    color: isExpired ? '#ef4444' : '#10b981', 
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    padding: '2px 8px', // 👈 缩小标签尺寸
-                    borderRadius: '6px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'middle'  // 👈 对齐文字中心
-                  }}>
-                    {isExpired ? "🚫 Registration Closed" : `⏳ ${timeLeft}`}
-                  </div>
-                )}
-              </div>
+        {events.map((ev) => (
+          <div 
+            key={ev.id} 
+            style={{ ...eventCardStyle, cursor: 'pointer' }} 
+            onClick={() => onEventClick(ev.id)}
+          >
+            {/* 卡片内部的图片（大桥） */}
+            <div style={{ 
+              width: '100%', 
+              height: '200px', 
+              overflow: 'hidden', 
+              borderRadius: '12px 12px 0 0',
+              backgroundColor: '#1e293b' 
+            }}>
+              <img 
+                src="/background1.jpg" 
+                alt={ev.name} 
+                style={imgStyle}  // 👈 重点：确保这一行存在且拼写正确
+              />
             </div>
-          );
-        })}
+
+            {/* 卡片下方的文字信息 */}
+            <div style={infoBoxStyle}>
+              <h3 style={titleStyle}>{ev.name}</h3>
+              <div style={textStyle}>📅 {ev.date}</div>
+              <div style={textStyle}>📍 {ev.location || 'TBA'}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
-
 // 管理后台页
 function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const [newPlayer, setNewPlayer] = useState({ name: '', rank: '', rating: '' });
@@ -231,72 +180,44 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const handleAdd = async () => {
     if (!newPlayer.name || !newPlayer.rank) return alert("Please fill Name and Rank");
     const { error } = await supabase.from('players').insert([{ 
-      player_name: newPlayer.name, 
+      name: newPlayer.name, 
       rank: newPlayer.rank, 
       rating: parseInt(newPlayer.rating) || 0 
     }]);
     if (!error) {
       setNewPlayer({ name: '', rank: '', rating: '' });
       fetchPlayers();
-    } else {
-      alert("Add failed: " + error.message);
     }
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this player?")) {
-      const { error } = await supabase.from('players').delete().eq('player_id', id);
-      if (!error) {
-        // ✨ 重点修复：因为子组件没有 setPlayers，我们直接调用父组件传来的 fetchPlayers
-        fetchPlayers(); 
-      } else {
-        alert("Delete failed: " + error.message);
-      }
+      const { error } = await supabase.from('players').delete().eq('id', id);
+      if (!error) fetchPlayers();
     }
   };
 
   return (
-    <div style={{ 
-      ...containerStyle,  
-      position: 'relative', 
-      paddingTop: '160px',
-      minHeight: '100vh', // 确保背景铺满
-      display: 'block' 
-    }}>
+    <div style={listStyle}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
       
-      {/* 🚀 放置在此：Logo 包装容器 */}
-    <div className="logo-wrapper" style={{
-        position: 'fixed',
-        top: '20px',
-        left: '120px',
-        zIndex: 9999,
-        width: '110px',
-        height: '110px',
-        margin: 0,
-        pointerEvents: 'auto'
-    }}>
+      {/* ✨ 重点：在这里把 Logo 加上，不要删除首页的，而是这里也加一份 */}
+      <div className="logo-wrapper">
         <img 
           src="/logo.jpg" 
-          alt="JIAYI GO BRAND"
-          className="main-logo" 
+          alt="JIAYI GO BRAND" 
+          className="main-logo"
           style={{ 
             height: '110px', width: '110px', borderRadius: '50%',
             objectFit: 'cover', cursor: 'pointer',
-            filter: 'drop-shadow(0 4px 15px rgba(9, 5, 65, 0.4))',
-            boxShadow: '0 0 15px rgba(0,0,0,0.6)',
-            border: '2px solid white',
-            transition: 'transform 0.2s'
+            filter: 'drop-shadow(0 4px 6px rgba(9, 5, 65, 0.21))',
+            boxShadow: '0 0 10px rgba(157, 125, 250, 0.1)',
+            border: '2px solid rgba(255, 255, 255, 0.3)'
           }} 
-          onClick={() => setActiveTab('events')} // 管理员点 Logo 回首页
-          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'} 
+          onClick={() => setActiveTab('events')} 
         />
       </div>
 
-      <h1 style={{ ...headerStyle, marginTop: '10px', marginBottom: '30px' }}>
-      Admin: Players Management
-      </h1>
-
+      <h1 style={headerStyle}>Admin: Players Management</h1>
       <div style={adminFormStyle}>
         <input style={inputStyle} placeholder="Name" value={newPlayer.name} onChange={e => setNewPlayer({...newPlayer, name: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 1d)" value={newPlayer.rank} onChange={e => setNewPlayer({...newPlayer, rank: e.target.value})} />
@@ -305,37 +226,11 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
       </div>
       <div style={listStyle}>
         {players.map(p => (
-          <div key={p.player_id} style={{
-        ...cardStyle, // 保留原有的背景色和边框
-        // 🚀 强制开启 Flex 布局并两端对齐
-        display: 'flex',
-        flexDirection: 'row',       // 强制横向
-        justifyContent: 'space-between', // 强制名字在左，按钮在右
-        alignItems: 'center',       // 垂直居中
-        padding: '12px 20px',       // 强制给内边距
-        marginBottom: '10px',
-        width: '100%',
-        boxSizing: 'border-box', // 👈 极其重要：防止 padding 把按钮挤出屏幕
-        overflow: 'visible'      // 👈 确保按钮溢出时也能看到（虽然不应该溢出）
-        }}>
+          <div key={p.id} style={cardStyle}>
             <div style={infoStyle}>
-              <span style={nameStyle}>{p.player_name}</span>
-              <span style={{ 
-          backgroundColor: 'rgba(139, 92, 246, 0.2)', // 紫色背景
-          color: '#a78bfa',
-          padding: '2px 8px',
-          borderRadius: '4px',
-          fontSize: '0.85em',
-          fontWeight: 'bold',
-          border: '1px solid rgba(139, 92, 246, 0.3)'
-        }}>{p.rank}</span></div>
-            <button style={{
-          ...deleteBtnStyle,
-          // 🚀 强制样式
-          padding: '6px 15px',
-          backgroundColor: '#ef4444', // 鲜红色
-          marginLeft: '20px' // 与文字保持距离
-        }} onClick={() => handleDelete(p.player_id)}>DELETE</button>
+              <span style={nameStyle}>{p.name}</span>
+              <span style={rankStyle}>{p.rank}</span></div>
+            <button style={deleteBtnStyle} onClick={() => handleDelete(p.id)}>DELETE</button>
           </div>
         ))}
       </div>
@@ -343,70 +238,109 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   );
 }
 
-// --- 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示) ---
+// 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示)
 function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
-  const [step, setStep] = useState(0); // 0: 表单, 1: 动画, 2: 结果
-  const [formData, setFormData] = useState({ player_name: '', rank: '', rating: '', password: '' });
-  
+  const [step, setStep] = useState(0); // 0: Form, 1: Grouping, 2: Result
+  const [ground, setGround] = useState(null);
   const selectedEvent = events.find(e => e.id === selectedEventId);
-  const handleStartGrouping = async (e) => {
-    e.preventDefault();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    username: '', rank: '', rating: '', password: ''
+  });
+
+const handleStartGrouping = async (e) => {
+  e.preventDefault();
   try {
-    setStep(1); // 进入动画
-  // 1. 获取当前登录用户的 UUID
-  const currentUserId = user.id; // 这就是 Supabase Auth 的唯一标识符
+    // 1. 先查重 (静默进行)
+    const { data: existingEntry, error: checkError } = await supabase
+      .from('registrations')
+      .select('id')
+      .eq('event_id', String(selectedEventId))
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (checkError) throw checkError;
+
+    if (existingEntry) {
+      alert("You have already registered for this event!");
+      onFinish(); // 或者 setActiveTab('events')
+      return; // 结束函数，不再执行后面的动画和插入
+    }
+  
+  setStep(1); // 1. 进入转圈动画
+  // ✨ 先生成一个随机数，这样我们既能存数据库，也能更新 UI 状态
+  const assignedGround = Math.floor(Math.random() * 5) + 1;
+
+     // 2. 将报名信息（含 Email）存入 Supabase
   const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
         event_id: String(selectedEventId),
         event_title: selectedEvent?.name,
-        player_id: currentUserId,
-        player_name: formData.player_name,
+        user_id: user.id,
+        user_name: formData.username,
         user_email: user.email, 
         rank: formData.rank,
         rating: formData.rating,
-        password: formData.password,
-        ground: 0 // <--- 重点：初始值为0，代表待分配
+        ground: assignedGround // 使用刚才生成的数字
       }]);
 
     if (insertError) throw insertError;
 
-    // 2. 动画结束后直接进入“等待审核”状态
+    // ✅ 关键：调用 setGround。这会消除警告并让 step 2 显示正确的数字
+    setGround(assignedGround);
+
+    // 3. 模拟后台处理感，等 3 秒后再显示结果
     setTimeout(() => {
       setStep(2); 
-    }, 2000);
+    }, 3000);
 
   } catch (err) {
+    console.error("Registration error:", err.message);
     alert("Registration failed: " + err.message);
     setStep(0);
   }
-  };
+};
 
-  // --- 视图渲染逻辑 ---
-
-  // 步骤 0：填写表单
   if (step === 0) return (
     <div style={adminContainerStyle}>
-      <div 
-        onClick={() => onFinish()} // 点击返回直接触发完成/关闭
-        style={{ cursor: 'pointer', color: 'white', display: 'flex', alignItems: 'center', marginBottom: '15px', opacity: 0.8 }}
-      >
-        <span style={{ fontSize: '1.4em', marginRight: '8px' }}>←</span>
-        <span>Back to Events</span>
-      </div>
+{/* --- 新增：返回箭头按钮 --- */}
+    <div 
+      onClick={() => navigate('/events', { state: { openModal: true } })}
+      style={{ 
+        cursor: 'pointer', 
+        color: 'white', 
+        display: 'flex', 
+        alignItems: 'center', 
+        marginBottom: '15px',
+        width: 'fit-content', // 确保只有点击图标和文字区域才触发
+        opacity: 0.8,
+        transition: 'opacity 0.2s'
+      }}
+      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+      onMouseLeave={(e) => e.currentTarget.style.opacity = '0.8'}
+    >
+      <span style={{ fontSize: '1.4em', marginRight: '8px', lineHeight: '1' }}>←</span>
+      <span style={{ fontSize: '0.9em', fontWeight: '500' }}>Back</span>
+    </div>
       <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
       <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <input style={inputStyle} placeholder="Go Playername" required onChange={e => setFormData({...formData, player_name: e.target.value})} />
+        <input style={inputStyle} placeholder="Go Username" required onChange={e => setFormData({...formData, username: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
         <input style={inputStyle} placeholder="Current Rating" required onChange={e => setFormData({...formData, rating: e.target.value})} />
-        <input style={{ ...inputStyle, opacity: 0.7, backgroundColor: '#1e293b' }} value={user?.email || ''} readOnly />
+        <input 
+  type="email" 
+  placeholder="Email Address" 
+  value={user?.email} 
+  readOnly 
+  style={{ ...inputStyle, opacity: 0.7 }} // ✅ 两个样式合并成了一个
+/>
         <input style={inputStyle} type="password" placeholder="OGS Password (for link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
         <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Join & Start Grouping</button>
       </form>
     </div>
   );
 
-  // 步骤 1：分组动画
   if (step === 1) return (
     <div style={{ textAlign: 'center', padding: '60px', color: 'white' }}>
       <div className="loader" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #8b5cf6', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
@@ -416,117 +350,73 @@ function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
     </div>
   );
 
-// 步骤 2：显示报名成功，等待管理员分组
-  if (step === 2) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#064e3b', borderRadius: '20px', border: '2px solid #10b981' }}>
-        <h2 style={{ color: '#6ee7b7' }}>🎉 Registration Complete!</h2>
-        
-        <div style={{ margin: '30px 0' }}>
-          {/* ✅ 重点：这里直接写文字，不要写 {ground} 变量 */}
-          <div style={{ fontSize: '3em', color: 'white', fontWeight: '900', textTransform: 'uppercase' }}>
-            Waiting for Grouping
-          </div>
-       </div>
-          <button 
-          onClick={onFinish} 
-          style={{ 
-            ...loginBtnStyle, 
-            backgroundColor: '#10b981', 
-            padding: '15px 40px', 
-            fontSize: '1.1em', 
-            cursor: 'pointer',
-            border: 'none',
-            borderRadius: '8px',
-            color: 'white'
-          }}
-        >
-          Confirm & Return to Dashboard
-        </button>
+ return (
+  <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#064e3b', borderRadius: '20px', border: '2px solid #10b981' }}>
+    <h2 style={{ color: '#6ee7b7' }}>🎉 Grouping Complete!</h2>
+    
+    <div style={{ fontSize: '5em', color: 'white', fontWeight: '900', margin: '20px 0' }}>
+      {ground} <span style={{fontSize:'0.3em'}}>GROUND</span>
+    </div>
+    
+    {/* ✨ 我们把原来的 Link 按钮删掉，把 Return 按钮升级成大按钮 */}
+    <button 
+      onClick={onFinish} 
+      style={{ 
+        ...loginBtnStyle, 
+        backgroundColor: '#10b981', 
+        padding: '15px 40px',
+        fontSize: '1.1em',
+        cursor: 'pointer'
+      }}
+    >
+      Confirm & Return to Dashboard
+    </button>
 
-
-        <p style={{ color: '#a7f3d0', marginTop: '20px', fontSize: '0.85em', opacity: 0.8 }}>
-          You can link your OGS account in the "YOU" tab later.
-        </p>
-
-      </div>
-    );
-   }
-
-  // ✅ 如果上面的 if 都不满足，最后才执行这个保底返回
-  return null;
+    <p style={{ color: '#a7f3d0', marginTop: '20px', fontSize: '0.85em', opacity: 0.8 }}>
+      You can link your OGS account in the "YOU" tab later.
+    </p>
+  </div>
+);
 }
 
-const getEventStatus = (deadline) => {
-  if (!deadline) return { isExpired: false, timeLeft: null };
-  const diff = new Date(deadline) - new Date();
-  const isExpired = diff <= 0;
-  if (isExpired) return { isExpired: true, timeLeft: "Registration Closed" };
+// 2. 统一数据获取函数 (抓取玩家、活动、留言)
+  const fetchSupabaseData = async (setPlayers, setEvents, setMessages) => {
+    try {
+      // 同时获取三项数据
+      const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
+      const { data: e } = await supabase.from('events').select('*');
+      const { data: m, error: mError } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const minutes = Math.floor((diff / 1000 / 60) % 60);
+      if (mError) throw mError;
 
-  let timeLeft = "";
-  if (days > 0) timeLeft = `${days}d ${hours}h left`;
-  else if (hours > 0) timeLeft = `${hours}h ${minutes}m left`;
-  else timeLeft = `${minutes}m left`;
+      if (p) setPlayers(p);
+      if (e) setEvents(e);
+      // 如果数据库有留言，则覆盖默认显示的留言
+      if (m && m.length > 0) setMessages(m); 
 
-  return { isExpired: false, timeLeft };
-};
+    } catch (error) {
+      console.error("❌ 数据获取失败:", error.message);
+    }
+  };
 
 // --- 3. 主 App 组件 ---
 export default function App() {
   // 1. 状态定义区 (确保顺序正确，先定义再使用)
   const [activeTab, setActiveTab] = useState('events');
-
-  // --- 1. 把这个函数放在 App 组件的最上方 ---
-  const exportMatchResults = async () => {
-  try {
-    const { data: matches, error } = await supabase
-      .from('user_matches')
-      .select('*')
-      .order('round', { ascending: true });
-
-    if (error) throw error;
-    if (!matches || matches.length === 0) return alert("No match data found");
-
-    const exportData = matches.map(m => ({
-      "Round": `Round ${m.round}`,
-      "Player": m.player_name,
-      "Opponent": m.opponent_name,
-      "Result": m.result || "Pending",
-      "Time": m.match_time ? new Date(m.match_time).toLocaleString() : "TBA"
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "MatchResults");
-    XLSX.writeFile(wb, `Jiayi_Go_Results_${new Date().toISOString().slice(0,10)}.xlsx`);
-  } catch (err) {
-    alert("Export failed: " + err.message);
-  }
-  };
-
   const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
-  const [verifiedPlayerId, setVerifiedPlayerId] = useState(null);
   
-  // ✨ 就放在这里：定义对局状态
-  const [matches, setMatches] = useState({ next: null, history: [] });
-
   // ✨ 插入点 1：注册相关的状态
   const [isRegistering, setIsRegistering] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const isRegistrationOpen = (deadline) => {
-    if (!deadline) return true; // 没设截止日期则默认开放
-    return new Date() < new Date(deadline);
-  };
 
-  useEffect(() => {
+useEffect(() => {
   // 1. 同步状态：如果路径回到了首页/赛事页，强制把 activeTab 改回 'events'
   // 这样才能解决点击 Back 后其他标签页点不动的问题
   if (location.pathname === '/events' || location.pathname === '/') {
@@ -547,105 +437,16 @@ export default function App() {
   // 留言状态：包含默认欢迎词和输入框文字
   const [inputText, setInputText] = useState(""); 
   const [messages, setMessages] = useState([
-    { id: 1, player_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
-    { id: 2, player_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
+    { id: 1, user_name: "Ronnie (Admin)", content: "Welcome to the new Jiayi Go message board!", created_at: new Date().toISOString() },
+    { id: 2, user_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
   ]);
 
   const handleEventClick = (eventId) => {
-    const targetEvent = events.find(e => e.id === eventId);
-   if (targetEvent && !isRegistrationOpen(targetEvent.registration_deadline)) 
-    {
-    return alert(`Sorry, the registration for "${targetEvent.name}" has already closed.`);
-    } 
-    
     setSelectedEventId(eventId);
     setIsRegistering(true);
   };
 
-  // 2. 统一数据获取函数 (抓取玩家、活动、留言)
-  const fetchData = useCallback(async () => {
-    try {
-      // 同时获取基础数据：玩家、活动、留言
-      const { data: p } = await supabase.from('players').select('player_id, player_name, rank, rating').order('rating', { ascending: false });
-      const { data: e } = await supabase.from('events').select('*').order('date', { ascending: false });
-      const { data: m, error: mError } = await supabase
-        .from('messages')
-        .select(`
-          id,
-          content,
-          created_at,
-          user_id,
-          profiles (
-            username
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (mError) throw mError;
-      if (p) setPlayers(p);
-      if (e) setEvents(e);
-      if (m && m.length > 0) setMessages(m);
-      
-      // ✨ 关键逻辑：获取对局信息
-      // 优先看有没有通过 OGS 密码验证的 ID (verifiedPlayerId)，没有则看 Google 登录的 ID (user?.id)
-      const finalId = verifiedPlayerId || user?.id;
-
-      if (finalId) {
-        const { data: mData, error: mError } = await supabase
-          .from('user_matches')
-          .select('*')
-          .eq('player_id', finalId) 
-          .order('round', { ascending: false });
-
-        if (!mError && mData) {
-          setMatches({
-            next: mData[0] ? {
-             ...mData[0],
-             displayTime: mData[0].match_time 
-             } : null,
-            history: mData.slice(1) || []
-          });
-        }
-      } else {
-        // 如果既没登录也没验证，清空对局信息
-        setMatches({ next: null, history: [] });
-      }
-
-    } catch (error) {
-      console.error("❌ 数据获取失败:", error.message);
-    }
-  }, [user, verifiedPlayerId]); // ✨ 核心：必须依赖这两个 ID，任何一个变化都要重新抓数据 ✨ 注意这里的闭合：箭头函数结束 }，然后是 useCallback 的结束 )
-
- // ✨ 新增：管理员更新赛事截止日期的函数
-const updateEventDeadline = async (eventId, newDeadline) => {
-   
-  try {
-    // 强制转换为数字，确保匹配数据库的 int8 类型
-    const numericId = Number(eventId);
-    const deadlineToStore = newDeadline ? new Date(newDeadline).toISOString() : null;
-
-    const { data, error } = await supabase
-      .from('events')
-      .update({ registration_deadline: deadlineToStore })
-      .eq('id', numericId)
-      .select();
-
-    if (error) throw error;
-    
-    if (data && data.length === 0) {
-      alert("⚠️ Warning: No rows matched. Check if Event ID 1 exists.");
-    } else {
-      alert("✅ Deadline updated successfully!");
-      alert(deadlineToStore ? "✅ Deadline updated!" : "🗑️ Deadline cleared!");
-      await fetchData(); // 立即刷新页面数据
-    } 
-  } catch (err) {
-    console.error("Update failed:", err.message);
-    alert("❌ Error: " + err.message);
-  }
-}; 
-
-  // 3. 登录/登出逻辑
+    // 3. 登录/登出逻辑
   const handleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -678,6 +479,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         .insert([
           { 
             content: inputText,
+            user_name: user.email,
             user_id: user.id
           }
         ]);
@@ -686,7 +488,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
 
       console.log("✅ 发送成功！");
       setInputText(""); // 清空输入框
-      await fetchData(); // ✨ 刷新列表
+      await fetchSupabaseData(setPlayers, setEvents, setMessages);
     } catch (error) {
       console.error("❌ 发送失败:", error.message);
       alert("发送失败: " + error.message);
@@ -707,10 +509,7 @@ const updateEventDeadline = async (eventId, newDeadline) => {
     }
 
     const exportData = regData.map(reg => ({
-      'player_name': reg.player_name,
-      'player_id': reg.player_id,
-      'Rank': reg.rank,
-      'Rating': reg.rating,
+      'Player Name': reg.user_name,
       'Registration Time': new Date(reg.created_at).toLocaleString(),
       'Event ID': reg.event_id
     }));
@@ -726,42 +525,16 @@ const updateEventDeadline = async (eventId, newDeadline) => {
 };
 
   // 5. OGS 验证逻辑
-  const handleOgsVerify = async () => {
-  const inputName = window.prompt("Enter your REGISTERED Name:");
-  const inputPassword = window.prompt("Enter your Password:");
+  const handleOgsVerify = () => {
+    const username = window.prompt("Enter your OGS Username:");
+    const password = window.prompt("Enter your OGS Password:");
 
-    if (inputName && inputPassword) {
-    try {
-      // 2. 去 Supabase 的 registrations 表里验证
-      const { data, error } = await supabase
-        .from('registrations')
-        .select('*')
-        .eq('player_name', inputName)
-        .eq('password', inputPassword)
-        .single(); // 我们只需要一条匹配的数据
-
-      if (error || !data) {
-        alert("❌ Authentication failed: Name or Password incorrect.");
-        return;
-      }
-      // ✨ 关键修改：保存验证成功的 player_id
-        setVerifiedPlayerId(data.player_id);
-      
-      alert(`✅ Welcome back, ${data.player_name}!`);
-
-      setIsVerified(true);       // 开启权限，顶部菜单会出现 YOUR MATCHES
-      setActiveTab('yourMatches'); // 自动跳转到对局页面
-
-      // 3. ✨ 关键：手动触发一次数据拉取
-        // 这样可以确保切换过去后，fetchData 能够立即运行
-        await fetchData();
-
-    } catch (err) {
-      console.error("Login Error:", err);
-      alert("An error occurred during verification.");
+    if (username && password) {
+      alert("OGS Verification Successful!");
+      setIsVerified(true);
+      setActiveTab('yourMatches'); 
     }
-  }
-};
+  };
 
   // 6. 生命周期监听 (初始化)
   useEffect(() => {
@@ -771,12 +544,13 @@ const updateEventDeadline = async (eventId, newDeadline) => {
         setUser(session?.user ?? null);
       });
 
+      // ✨ 调用外部定义的函数，传入 setters
+      fetchSupabaseData(setPlayers, setEvents, setMessages);
+
       // 监听状态变化
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         setUser(session?.user ?? null);
       });
-
-      fetchData();
 
       return () => {
         if (subscription) subscription.unsubscribe();
@@ -845,7 +619,7 @@ return (
               if (tab === 'yourMatches') return isVerified;
               return true;
             })
-        .map(t => (
+.map(t => (
               <span key={t} 
                 style={{
                   ...(activeTab === t ? activeTabStyle : tabStyle),
@@ -882,65 +656,18 @@ return (
         />
       )}
         {activeTab === 'players' && (
-          <div style={{ 
-                ...listStyle, // 引用旧样式
-                width: '100%',
-                maxWidth: '750px', // ⭐ 关键：限制蓝条的最大宽度（750px 或 800px 比较合适围棋项目）
-                margin: '0 auto',  // ⭐ 关键：让整个列表水平居中
-                display: 'flex',   // ⭐ 如果 listStyle 没有，加上这个
-                flexDirection: 'column',
-                gap: '8px' // ⭐ 确保卡片之间有间距
-              }}>
+          <div style={listStyle}>
             <h1 style={headerStyle}>Rankings</h1>
             {players.map(p => (
-              <div key={p.player_id} style={{ 
-                ...cardStyle,
-                display: 'flex',  // 如果你用了 CSS 文件，这里加 important 强行覆盖
-                flexDirection: 'row',
-                justifyContent: 'space-between', // ⭐ 关键：强制两端对齐
-                alignItems: 'center',            // ⭐ 关键：纵向居中
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '12px 20px', // 稍微增加内边距
-                marginBottom: '10px'
-              }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '15px', 
-                }}>
-                  <span style={{ 
-                    ...idStyle,
-                    color: '#94a3b8', // 调亮 ID 颜色，看得清
-                    opacity: 0.7, 
-                    fontSize: '0.9rem',
-                    fontFamily: 'monospace' // 使用等宽字体
-                  }}>
-                    #{p.player_id.toString().slice(0, 4)}
-                  </span>
-                  <span style={{ 
-                    ...nameStyle, 
-                    fontSize: '1.2rem', 
-                    fontWeight: 'bold',
-                    color: '#fff' 
-                  }}>
-            {p.player_name}
-          </span>
-        </div>
-               <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <span style={{
-            ...rankStyle,
-            backgroundColor: 'rgba(79, 70, 229, 0.2)', // 给段位加个微弱背板
-            padding: '2px 8px',
-            borderRadius: '4px',
-            minWidth: '35px',
-            textAlign: 'center'
-          }}>{p.rank}</span>
-          <span style={{ ...ratingStyle, color: '#94a3b8' }}>
-            {p.rating} <small style={{ opacity: 0.8 }}>pts</small>
-          </span>
-        </div>
-
+              <div key={p.id} style={cardStyle}>
+                <div style={infoStyle}>
+                  <span style={idStyle}>#{p.id.toString().slice(0, 4)}</span>
+                  <span style={nameStyle}>{p.name}</span>
+                </div>
+                <div style={infoStyle}>
+                  <span style={rankStyle}>{p.rank}</span>
+                  <span style={ratingStyle}>{p.rating} pts</span>
+                </div>
               </div>
             ))}
           </div>
@@ -962,8 +689,8 @@ return (
             onClick={() => {
               // 这里直接调用导出逻辑
               const exportData = players.map(p => ({
-                'player_id': p.player_id,
-                'player_name': p.player_name,
+                'Player ID': p.id,
+                'Name': p.name,
                 'Rank': p.rank,
                 'Rating': p.rating
               }));
@@ -981,14 +708,10 @@ return (
               cursor: 'pointer',
               fontWeight: 'bold',
               fontSize: '0.85em',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              transition: 'all 0.2s'
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
             }}
           >
-            📥 Export All Players
+            📥 Export Excel
           </button>
         </div>      
 
@@ -1016,137 +739,10 @@ return (
         📥 {event.title || 'Unnamed Event'}
       </button>
     ))}
-
-      {/* 2. ✨ 在这里插入你的“比赛结果导出”蓝色按钮 */}
-    <button 
-      onClick={exportMatchResults} 
-      style={{
-        backgroundColor: '#1e40af', // 蓝色背景
-        color: 'white',
-        padding: '6px 12px',
-        borderRadius: '6px',
-        border: 'none',
-        cursor: 'pointer',
-        fontSize: '0.8em',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '5px',
-        fontWeight: 'bold'
-      }}
-    >
-      🏆 Export Match Results
-    </button>
-
   </div>
 </div>
  
-<div style={{ 
-  marginTop: '20px', 
-  padding: '20px', 
-  backgroundColor: 'rgba(30, 41, 59, 0.7)', // 深色半透明背景
-  borderRadius: '16px',
-  border: '1px solid rgba(255, 255, 255, 0.1)'
-}}>
-  <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '1.1em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-    📅 Registration Deadlines
-  </h3>
-  
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-    {events.map(event => (
-      <div key={event.id} style={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        gap: '12px',
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        padding: '12px',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: '10px',
-        border: '1px solid rgba(139, 92, 246, 0.2)'
-      }}>
-        <div style={{ color: 'white', fontWeight: '500' }}>
-          {event.name ||event.title || 'Unnamed Event'}
-        </div>
-
-        {/* ✨ 重点：左侧显示当前的截止日期文字 */}
-        <div style={{ fontSize: '0.85em', color: '#94a3b8' }}>
-          <span style={{ color: '#8b5cf6', marginRight: '5px' }}>●</span>
-          Current Deadline: 
-          <strong style={{ color: '#f8fafc', marginLeft: '5px' }}>
-            {event.registration_deadline 
-              ? new Date(event.registration_deadline).toLocaleString('en-CA', { hour12: false }) 
-              : "Not Set"}
-          </strong>
-        </div>
-
-
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <input 
-            type="datetime-local" 
-            // 格式化时间以适配 input 展示：2026-04-27T09:00
-            defaultValue={event.registration_deadline ? new Date(event.registration_deadline).toISOString().slice(0, 16) : ""}
-            id={`deadline-${event.id}`}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #475569',
-              backgroundColor: '#0f172a',
-              color: 'white',
-              fontSize: '0.85em'
-            }}
-          />
-          <button 
-            onClick={() => {
-              const val = document.getElementById(`deadline-${event.id}`).value;
-              updateEventDeadline(event.id, val);
-            }}
-            style={{
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              border: 'none',
-              padding: '6px 15px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '0.85em',
-              transition: 'all 0.2s'
-            }}
-          >
-            Update
-          </button>
-          
-          {/* ✨ 新增：Clear 按钮 */}
-  
-  <button 
-    onClick={() => {
-      if (window.confirm("Are you sure you want to clear the deadline?")) {
-        // 传入空字符串，触发函数中的 null 逻辑
-        updateEventDeadline(event.id, ""); 
-        // 将输入框内容也清空
-        document.getElementById(`deadline-${event.id}`).value = "";
-      }
-    }}
-    style={{
-      backgroundColor: 'transparent',
-      color: '#ef4444',
-      border: '1px solid #ef4444',
-      padding: '6px 12px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontSize: '0.85em'
-    }}
-  >
-    Clear
-  </button>
-
-
-        </div>
-      </div>
-    ))}
-  </div>
-</div>
-
-      <AdminPlayersPage players={players} fetchPlayers={fetchData} setActiveTab={setActiveTab} />
+<AdminPlayersPage players={players} fetchPlayers={() => fetchSupabaseData(setPlayers, setEvents, setMessages)} setActiveTab={setActiveTab} />
       
       </> // 👈 就是这里！刚才漏掉了这个闭合标签
     ) : (
@@ -1200,24 +796,15 @@ return (
   flexDirection: 'column',
   gap: '15px'
 }}>
-  {/* ✨ 修正：将内容合并到一个根 div 中 */}
+  {/* ✨ 这一步最关键：让 React 根据 messages 数组的内容自动画出留言条 */}
   {messages.map((msg) => (
     <div key={msg.id} style={messageContainerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-        {/* 重点：从关联的 profiles 对象中取 username */}
-        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>
-          {msg.profiles?.username || '未知用户'}
-        </span>
-        
-        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>
-          {msg.created_at 
-            ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-            : '刚刚'}
-        </span>
+        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user_name || msg.user}</span>
+        <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
       </div>
-      
       <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>
-        {msg.content}
+        {msg.content || msg.text}
       </p>
     </div>
   ))}
@@ -1288,159 +875,82 @@ onKeyDown={(e) => {
           fontWeight: '600'
         }}
       >
-        🏆 Your Matches !
+        🏆 Link OGS Account
       </button>
             </div>
           </div> /* ✅ 闭合 Dashboard 的内层 div */
         )} {/* ✅ 闭合 activeTab === 'you' 的逻辑 */}
 
-
-
         {/* --- YOUR MATCHES 页面内容 --- */}
+        {activeTab === 'yourMatches' && (
+          <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
+            <h1 style={headerStyle}>🏆 Your Matches</h1>
 
-
-{activeTab === 'yourMatches' && (
-  <div style={{ backgroundColor: '#f8fafc', padding: '30px', borderRadius: '16px', color: '#1e293b' }}>
-    <h1 style={headerStyle}>🏆 Your Matches</h1>
-
-    <h3 style={sectionTitleStyle}>NEXT MATCH</h3>
-    <div style={nextMatchCardStyle}>
-      <div style={roundBadgeStyle}>Round {matches.next?.round || "2"}</div>
-      
-      <div style={matchInfoStyle}>
-        <div style={blackStoneIcon} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-          <div style={playerNameStyle}>
-             {matches.next?.opponent_name || "TBA"} 
-             <span style={rankPillStyle}>{matches.next?.opponent_rank || "N/A"}</span>
-          </div>
-    
-          {/* ✨ 修改点 1：把写死的邮箱替换为数据库字段 */}
-          <div style={{ 
-            fontSize: '0.85em', 
-            color: '#64748b', 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '4px' 
-          }}>
-            📧 <a 
-              href={`mailto:${matches.next?.opponent_email || ''}`} 
-              style={{ color: '#3b82f6', textDecoration: 'none' }}
-            >
-              {matches.next?.opponent_email || "No email provided"}
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <div style={matchTimeStyle}>
-        {/* ✨ 修改点 2：把写死的 Apr 16 9:00 pm 替换为动态时间 */}
-        <div style={{ fontWeight: 'bold' }}>
-          {matches.next?.match_time 
-            ? new Date(matches.next.match_time).toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              })
-            : "TBD"}
-        </div>
-        
-        <a 
-          href={matches.next?.ogs_url || "https://online-go.com/play"} 
-          target="_blank" 
-          rel="noreferrer" 
-          style={{
-            ...playBtnStyle, 
-            textDecoration: 'none', 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            marginTop: '8px'
-          }}
-        >
-          ✅ Let's Play!
-        </a>
-      </div>
-    </div>
-
-{/* --- HISTORY 部分 --- */}
-            <h3 style={sectionTitleStyle}>HISTORY</h3>
+            <h3 style={sectionTitleStyle}>NEXT MATCH</h3>
+            <div style={nextMatchCardStyle}>
+              <div style={roundBadgeStyle}>Round 2</div>
+              
+              <div style={matchInfoStyle}>
+                <div style={blackStoneIcon} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={playerNameStyle}>张三 <span style={rankPillStyle}>17k</span></div>
             
-            {matches.history && matches.history.length > 0 ? (
-              matches.history.map((h, index) => (
-                <div key={h.id || index} style={{...historyCardStyle, marginBottom: '10px'}}>
-                  <div style={smallRoundBadgeStyle}>Round {h.round}</div>
-                  <div style={h.is_black ? blackStoneIcon : whiteStoneIcon} />
-                  
-                  <div style={{ flex: 1, marginLeft: '15px', color: '#333' }}>
-                    <strong style={{ fontSize: '1.05rem' }}>{h.opponent_name}</strong> 
-                    
-                    {/* ✨ 动态显示数据库中的结果 */}
-                    <span style={{
-                      ...noResultBadgeStyle,
-                      marginLeft: '10px',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '0.85em',
-                      // 如果有结果显示绿色背景，没结果显示灰色
-                      backgroundColor: h.result ? '#dcfce7' : '#f1f5f9',
-                      color: h.result ? '#166534' : '#64748b',
-                      border: h.result ? '1px solid #bbf7d0' : '1px solid #e2e8f0'
-                    }}>
-                      {h.result || "Pending"}
-                    </span>
-                  </div>
+    {/* 2. 🚀 新增：对手邮箱 (紧贴在名字下面) */}
+    <div style={{ 
+      fontSize: '0.85em', 
+      color: '#64748b', 
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '4px' 
+    }}>
+      📧 <a 
+        href="mailto:opponent@example.com" 
+        style={{ color: '#3b82f6', textDecoration: 'none' }}
+      >
+        opponent@example.com
+      </a>
+    </div>
+  </div>
+</div>
 
-                  <div style={historyTimeStyle}>
-                    {h.match_time 
-                      ? new Date(h.match_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-                      : "Past"}
-                  </div>
-                </div>
-              ))
-            ) : (
-              /* 如果数据库没有历史对局，显示这个提示 */
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '30px', 
-                color: '#94a3b8', 
-                backgroundColor: '#f1f5f9', 
-                borderRadius: '12px',
-                border: '1px dashed #cbd5e1'
-              }}>
-                No match history found.
+              <div style={matchTimeStyle}>
+                <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
+                
+                <a 
+    href="https://online-go.com/play" 
+    target="_blank" 
+    rel="noreferrer" 
+    style={{
+      ...playBtnStyle, 
+      textDecoration: 'none', 
+      display: 'inline-flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      marginTop: '8px'
+    }}
+  >
+    ✅ Let's Play!
+  </a>
+              
               </div>
-            )}
+            </div>
 
-            {/* --- 底部退出区域 --- */}
-            <div style={{ 
-              marginTop: '40px', 
-              textAlign: 'center', 
-              borderTop: '1px solid #e2e8f0', 
-              paddingTop: '20px' 
-            }}>
+            <h3 style={sectionTitleStyle}>HISTORY</h3>
+            <div style={historyCardStyle}>
+              <div style={smallRoundBadgeStyle}>Round 1</div>
+              <div style={whiteStoneIcon} />
+              <div style={{ flex: 1, marginLeft: '15px', color: '#333' }}>
+                <strong>Greg</strong> <span style={noResultBadgeStyle}>No Result</span>
+              </div>
+              <div style={historyTimeStyle}>Apr 9</div>
+            </div>
+
+            <div style={{ marginTop: '40px', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
               <button 
-                onClick={() => { 
-                  setIsVerified(false); 
-                  setVerifiedPlayerId(null); // 清除验证状态
-                  setActiveTab('you'); 
-                }} 
-                style={{ 
-                  color: '#e61d2b', 
-                  border: 'none', 
-                  background: 'none', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: '0.9em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto',
-                  gap: '5px'
-                }}
+                onClick={() => { setIsVerified(false); setActiveTab('you'); }} 
+                style={{ color: '#e61d2b', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9em' }}
               >
-                <span>←</span> LOGOUT & SWITCH ACCOUNT
+                ← Logout from OGS
               </button>
             </div>
           </div>
@@ -1469,24 +979,9 @@ onKeyDown={(e) => {
             color: 'white'
           }}>
             <h2 style={{ marginBottom: '10px' }}>Confirm Registration</h2>
-            
-            {/* 🟢 第一步：在这里开始逻辑计算 */}
-            {(() => {
-               const currentEvent = events.find(e => e.id === selectedEventId);
-               const isOpen = isRegistrationOpen(currentEvent?.registration_deadline);
-
-             // 🟢 第二步：根据计算结果返回 UI 
-             return (
-              <>            
-                {isOpen ? (
-                <p style={{ color: '#94a3b8', marginBottom: '30px' }}>
-                   Would you like to register for this event?
-              </p>
-            ) : (
-              <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '30px' }}>
-                ⚠️ Registration has ended for this event.
-              </p>
-            )}
+            <p style={{ color: '#94a3b8', marginBottom: '30px' }}>
+              Would you like to register for this event?
+            </p>
             
             <div style={{ display: 'flex', gap: '15px' }}>
               <button 
@@ -1495,32 +990,18 @@ onKeyDown={(e) => {
               >
                 Cancel
               </button>
-
               <button 
                 onClick={() => {
-                if (!isOpen) {
-                    alert("Sorry, the deadline has passed!");
-                    setIsRegistering(false);
-                    return;
-                  }
-                  setIsRegistering(false); 
-                  setActiveTab('registration_flow'); 
-                }}
-                style={{ 
-                  ...addBtnStyle, 
-                  flex: 1, 
-                  padding: '12px', 
-                  height: 'auto',
-                  backgroundColor: isOpen ? '#8b5cf6' : '#475569', 
-                  cursor: isOpen ? 'pointer' : 'not-allowed'
-                }}
+    // 1. 关闭弹窗
+    setIsRegistering(false); 
+    // 2. 跳转到我们新创建的报名流程页面
+    setActiveTab('registration_flow'); 
+  }}
+                style={{ ...addBtnStyle, flex: 1, padding: '12px', height: 'auto' }}
               >
                 Confirm
               </button>
             </div>
-            </>
-            );
-          })()}
           </div>
         </div>
       )}
@@ -1528,6 +1009,3 @@ onKeyDown={(e) => {
     </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
-
-
-
