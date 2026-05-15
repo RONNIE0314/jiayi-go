@@ -480,7 +480,7 @@ useEffect(() => {
           { 
             content: inputText,
             user_name: user.user_metadata?.full_name ||user.email,
-            user_id: user.id
+            player_id: user.id
           }
         ]);
 
