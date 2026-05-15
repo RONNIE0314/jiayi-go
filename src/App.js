@@ -479,7 +479,7 @@ useEffect(() => {
         .insert([
           { 
             content: inputText,
-            user_name: user.user_metadata?.full_name ||user.email,
+            player_name: user.user_metadata?.full_name ||user.email,
             player_id: user.id
           }
         ]);
@@ -800,7 +800,7 @@ return (
   {messages.map((msg) => (
     <div key={msg.id} style={messageContainerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.user_name || msg.user}</span>
+        <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.player_name || '匿名用户'}</span>
         <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
       </div>
       <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>
