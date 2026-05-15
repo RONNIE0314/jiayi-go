@@ -479,7 +479,7 @@ useEffect(() => {
         .insert([
           { 
             content: inputText,
-            user_name: user.user_metadata.full_name ||user.email,
+            user_name: user.user_metadata?.full_name ||user.email,
             user_id: user.id
           }
         ]);
@@ -913,8 +913,8 @@ onKeyDown={(e) => {
   </div>
 </div>
 
-              <div style={matchTimeStyle}>
-                <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
+    <div style={matchTimeStyle}>
+      <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
                 
                 <a 
     href="https://online-go.com/play" 
