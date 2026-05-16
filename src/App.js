@@ -815,7 +815,7 @@ return (
     display: 'flex', 
     gap: '10px', 
     marginBottom: '30px',
-    maxWidth: '800px', 
+    maxWidth: '850px', 
     width: '100%', 
     margin: '0 auto 30px auto' 
   }}>
