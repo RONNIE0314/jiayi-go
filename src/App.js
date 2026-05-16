@@ -256,7 +256,7 @@ const handleStartGrouping = async (e) => {
       .from('registrations')
       .select('id')
       .eq('event_id', String(selectedEventId))
-      .eq('user_id', user.id)
+      .eq('player_id', user.id)
       .maybeSingle();
 
     if (checkError) throw checkError;
@@ -277,9 +277,9 @@ const handleStartGrouping = async (e) => {
       .insert([{
         event_id: String(selectedEventId),
         event_title: selectedEvent?.name,
-        user_id: user.id,
-        user_name: formData.username,
+        player_name: formData.username,
         user_email: user.email, 
+        player_id: user.id,
         rank: formData.rank,
         rating: formData.rating,
         ground: assignedGround // 使用刚才生成的数字
