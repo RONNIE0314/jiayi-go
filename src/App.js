@@ -28,21 +28,21 @@ const tabStyle = { color: '#000000', cursor: 'pointer', transition: '0.3s', padd
 const activeTabStyle = { color: '#000000', cursor: 'pointer', borderBottom: '2px solid #e61d2b', paddingBottom: '8px', fontWeight: 'bold' };
 
 const listStyle = { display: 'flex', flexDirection: 'column', gap: '15px' };
-const cardStyle = { 
-  display: 'flex', 
-  // 关键 1：改为 column，让图片在上面，文字在下面，这样旋转才好看
-  flexDirection: 'column', 
-  backgroundColor: '#1e293b', 
-  padding: '0', // 把 padding 设为 0，让图片能撑满边框
-  borderRadius: '12px', 
-  border: '1px solid #334155',
-  overflow: 'hidden' // 关键 2：剪掉旋转后多出来的图片边缘
-};
-const infoStyle = { display: 'flex', gap: '24px', alignItems: 'center' };
-const idStyle = { color: '#475569', fontSize: '0.9em' };
-const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
-const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' };
-const ratingStyle = { color: '#94a3b8' };
+// const cardStyle = { 
+//   display: 'flex', 
+//   // 关键 1：改为 column，让图片在上面，文字在下面，这样旋转才好看
+//   flexDirection: 'column', 
+//   backgroundColor: '#1e293b', 
+//   padding: '0', // 把 padding 设为 0，让图片能撑满边框
+//   borderRadius: '12px', 
+//   border: '1px solid #334155',
+//   overflow: 'hidden' // 关键 2：剪掉旋转后多出来的图片边缘
+// };
+// const infoStyle = { display: 'flex', gap: '24px', alignItems: 'center' };
+// const idStyle = { color: '#475569', fontSize: '0.9em' };
+// const nameStyle = { fontSize: '1.1em', fontWeight: '600' };
+// const rankStyle = { backgroundColor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa', padding: '4px 10px', borderRadius: '6px' };
+// const ratingStyle = { color: '#94a3b8' };
 const loginBtnStyle = { backgroundColor: '#8b5cf6', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' };
 const adminContainerStyle = {
   backgroundColor: 'rgba(30, 41, 59, 0.7)',
@@ -53,7 +53,7 @@ const adminContainerStyle = {
 };
 
 // ADMIN & YOU 页面专属样式
-const adminFormStyle = { display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #8b5cf6' };
+// const adminFormStyle = { display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #8b5cf6' };
 const inputStyle = { padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', flex: 1 };
 const addBtnStyle = { backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
 const deleteBtnStyle = { backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8em' };
@@ -174,6 +174,7 @@ function EventsPage({ events, onEventClick }) {
   );
 }
 // 管理后台页
+/* ==================== ⏸️ 已暂时禁用的老 Players 页面 ====================
 function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const [newPlayer, setNewPlayer] = useState({ name: '', rank: '', rating: '' });
 
@@ -187,8 +188,8 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
     if (!error) {
       setNewPlayer({ name: '', rank: '', rating: '' });
       fetchPlayers();
-    }else {
-    console.error("Insert error:", error.message); // 如果报错，方便在控制台打印排查
+    } else {
+      console.error("Insert error:", error.message); 
     }
   };
 
@@ -200,9 +201,8 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   };
 
   return (
-    <div style={{ ...adminContainerStyle, padding: '20px' }}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
+    <div style={{ ...adminContainerStyle, padding: '20px' }}> 
       
-      {/* ✨ 重点：在这里把 Logo 加上，不要删除首页的，而是这里也加一份 */}
       <div className="logo-wrapper">
         <img 
           src="/logo.jpg" 
@@ -239,6 +239,7 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
     </div>
   );
 }
+====================================================================== */
 
 // 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示)
 function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
@@ -271,9 +272,7 @@ const handleStartGrouping = async (e) => {
       return; 
     }
   
-    // ❌ 删除了以前的随机数逻辑：const assignedGround = Math.floor(Math.random() * 5) + 1;
-
-    // 2. 将报名信息存入 Supabase（彻底移除 ground 字段，新增保存用户填写的 password）
+     // 2. 将报名信息存入 Supabase（彻底移除 ground 字段，新增保存用户填写的 password）
     const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
@@ -627,7 +626,7 @@ return (
             marginRight: '110px', 
           flex: 1 
           }}>
-          {['events', 'players', 'you', 'admin', 'yourMatches']
+          {['events',  'you', 'admin', 'yourMatches']
             .filter(tab => {
               if (tab === 'you') return !!user;
               if (tab === 'admin') return user?.email === "bjmyschool@gmail.com";
@@ -670,23 +669,26 @@ return (
         onFinish={() => setActiveTab('you')} 
         />
       )}
-        {activeTab === 'players' && (
-          <div style={listStyle}>
-            <h1 style={headerStyle}>Rankings</h1>
-            {players.map(p => (
-              <div key={p.id} style={cardStyle}>
-                <div style={infoStyle}>
-                  <span style={idStyle}>#{p.id.toString().slice(0, 4)}</span>
-                  <span style={nameStyle}>{p.name}</span>
-                </div>
-                <div style={infoStyle}>
-                  <span style={rankStyle}>{p.rank}</span>
-                  <span style={ratingStyle}>{p.rating} pts</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        
+        {/* ==================== ⏸️ 暂时禁用的前端选手排行榜视图 ====================
+{activeTab === 'players' && (
+  <div style={listStyle}>
+    <h1 style={headerStyle}>Rankings</h1>
+    {players.map(p => (
+      <div key={p.id} style={cardStyle}>
+        <div style={infoStyle}>
+          <span style={idStyle}>#{p.id.toString().slice(0, 4)}</span>
+          <span style={nameStyle}>{p.name}</span>
+        </div>
+        <div style={infoStyle}>
+          <span style={rankStyle}>{p.rank}</span>
+          <span style={ratingStyle}>{p.rating} pts</span>
+        </div>
+      </div>
+    ))}
+  </div>
+)}
+======================================================================== */}
 
 {activeTab === 'admin' && (
   /* 1. 外层增加这个 div 并应用你定义的 adminContainerStyle */
@@ -757,8 +759,9 @@ return (
   </div>
 </div>
  
-<AdminPlayersPage players={players} fetchPlayers={() => fetchSupabaseData(setPlayers, setEvents, setMessages)} setActiveTab={setActiveTab} />
-      
+{/* <AdminPlayersPage players={players} fetchPlayers={() => fetchSupabaseData(setPlayers, setEvents, setMessages)} setActiveTab={setActiveTab} />
+       */}
+
       </> // 👈 就是这里！
     ) : (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
