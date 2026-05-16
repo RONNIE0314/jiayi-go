@@ -180,13 +180,15 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   const handleAdd = async () => {
     if (!newPlayer.name || !newPlayer.rank) return alert("Please fill Name and Rank");
     const { error } = await supabase.from('players').insert([{ 
-      name: newPlayer.name, 
+      player_name: newPlayer.name, 
       rank: newPlayer.rank, 
       rating: parseInt(newPlayer.rating) || 0 
     }]);
     if (!error) {
       setNewPlayer({ name: '', rank: '', rating: '' });
       fetchPlayers();
+    }else {
+    console.error("Insert error:", error.message); // 如果报错，方便在控制台打印排查
     }
   };
 
@@ -198,7 +200,7 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
   };
 
   return (
-    <div style={listStyle}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
+    <div style={{ ...adminContainerStyle, padding: '20px' }}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
       
       {/* ✨ 重点：在这里把 Logo 加上，不要删除首页的，而是这里也加一份 */}
       <div className="logo-wrapper">
@@ -228,7 +230,7 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
         {players.map(p => (
           <div key={p.id} style={cardStyle}>
             <div style={infoStyle}>
-              <span style={nameStyle}>{p.name}</span>
+              <span style={nameStyle}>{p.player_name}</span>
               <span style={rankStyle}>{p.rank}</span></div>
             <button style={deleteBtnStyle} onClick={() => handleDelete(p.id)}>DELETE</button>
           </div>
@@ -241,17 +243,19 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
 // 赛事报名流程组件 (收集信息 + 分组动画 + 结果显示)
 function RegistrationFlow({ user, selectedEventId, events, onFinish }) {
   const [step, setStep] = useState(0); // 0: Form, 1: Grouping, 2: Result
-  const [ground, setGround] = useState(null);
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     username: '', rank: '', rating: '', password: ''
   });
+// ==================== 🛠️ 彻底移除自动分组后的全新报名组件 ====================
 
 const handleStartGrouping = async (e) => {
   e.preventDefault();
   try {
-    // 1. 先查重 (静默进行)
+    setStep(1); // 1. 点击后立刻进入转圈动画反馈
+
+    // 1. 先进行数据库级别的静默查重
     const { data: existingEntry, error: checkError } = await supabase
       .from('registrations')
       .select('id')
@@ -263,16 +267,14 @@ const handleStartGrouping = async (e) => {
 
     if (existingEntry) {
       alert("You have already registered for this event!");
-      onFinish(); // 或者 setActiveTab('events')
-      return; // 结束函数，不再执行后面的动画和插入
+      onFinish(); 
+      return; 
     }
   
-  setStep(1); // 1. 进入转圈动画
-  // ✨ 先生成一个随机数，这样我们既能存数据库，也能更新 UI 状态
-  const assignedGround = Math.floor(Math.random() * 5) + 1;
+    // ❌ 删除了以前的随机数逻辑：const assignedGround = Math.floor(Math.random() * 5) + 1;
 
-     // 2. 将报名信息（含 Email）存入 Supabase
-  const { error: insertError } = await supabase
+    // 2. 将报名信息存入 Supabase（彻底移除 ground 字段，新增保存用户填写的 password）
+    const { error: insertError } = await supabase
       .from('registrations')
       .insert([{
         event_id: String(selectedEventId),
@@ -282,18 +284,15 @@ const handleStartGrouping = async (e) => {
         player_id: user.id,
         rank: formData.rank,
         rating: formData.rating,
-        ground: assignedGround // 使用刚才生成的数字
+        password: formData.password // ✅ 精准对齐你的密码输入框
       }]);
 
     if (insertError) throw insertError;
 
-    // ✅ 关键：调用 setGround。这会消除警告并让 step 2 显示正确的数字
-    setGround(assignedGround);
-
-    // 3. 模拟后台处理感，等 3 秒后再显示结果
+    // 3. 模拟后台处理感，给用户一个平滑的提交体验（从3秒微调为更爽快的1.5秒）
     setTimeout(() => {
       setStep(2); 
-    }, 3000);
+    }, 1500);
 
   } catch (err) {
     console.error("Registration error:", err.message);
@@ -302,9 +301,10 @@ const handleStartGrouping = async (e) => {
   }
 };
 
-  if (step === 0) return (
-    <div style={adminContainerStyle}>
-{/* --- 新增：返回箭头按钮 --- */}
+// 🟢 状态 0：填表提交报名界面（完美保留你原有的返回箭头和只读 Email）
+if (step === 0) return (
+  <div style={adminContainerStyle}>
+    {/* --- 返回箭头按钮 --- */}
     <div 
       onClick={() => navigate('/events', { state: { openModal: true } })}
       style={{ 
@@ -313,7 +313,7 @@ const handleStartGrouping = async (e) => {
         display: 'flex', 
         alignItems: 'center', 
         marginBottom: '15px',
-        width: 'fit-content', // 确保只有点击图标和文字区域才触发
+        width: 'fit-content', 
         opacity: 0.8,
         transition: 'opacity 0.2s'
       }}
@@ -323,42 +323,57 @@ const handleStartGrouping = async (e) => {
       <span style={{ fontSize: '1.4em', marginRight: '8px', lineHeight: '1' }}>←</span>
       <span style={{ fontSize: '0.9em', fontWeight: '500' }}>Back</span>
     </div>
-      <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
-      <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <input style={inputStyle} placeholder="Player_name" required onChange={e => setFormData({...formData, username: e.target.value})} />
-        <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
-        <input style={inputStyle} placeholder="Rating(CGA, AGA or OGS etc.)" required onChange={e => setFormData({...formData, rating: e.target.value})} />
-        <input 
-  type="email" 
-  placeholder="Email Address" 
-  value={user?.email} 
-  readOnly 
-  style={{ ...inputStyle, opacity: 0.7 }} // ✅ 两个样式合并成了一个
-/>
-        <input style={inputStyle} type="password" placeholder="Password (for playing link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
-        <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Join & Start Grouping</button>
-      </form>
-    </div>
-  );
+    
+    <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
+    
+    <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <input style={inputStyle} placeholder="Player_name" required onChange={e => setFormData({...formData, username: e.target.value})} />
+      <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
+      <input style={inputStyle} placeholder="Rating(CGA, AGA or OGS etc.)" required onChange={e => setFormData({...formData, rating: e.target.value})} />
+      
+      <input 
+        type="email" 
+        placeholder="Email Address" 
+        value={user?.email} 
+        readOnly 
+        style={{ ...inputStyle, opacity: 0.7 }} 
+      />
+      
+      <input style={inputStyle} type="password" placeholder="Password (for playing link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
+      
+      {/* ✨ 按钮文案优雅同步，不再带有强制分组的暗示 */}
+      <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Submit Entry Application</button>
+    </form>
+  </div>
+);
 
-  if (step === 1) return (
-    <div style={{ textAlign: 'center', padding: '60px', color: 'white' }}>
-      <div className="loader" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #8b5cf6', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
-      <h2>Grouping...</h2>
-      <p>Assigning you to a balanced match ground.</p>
-      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+// 🟡 状态 1：正在提交的过渡动画区（把原有的 Grouping 动画文案升级）
+if (step === 1) return (
+  <div style={{ textAlign: 'center', padding: '60px', color: 'white' }}>
+    <div className="loader" style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #8b5cf6', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
+    <h2>Submitting...</h2>
+    <p>Securing your official spot in the tournament roster.</p>
+    <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+  </div>
+);
 
- return (
+// 🔵 状态 2：一锤定音！完美保留原装绿底磨砂边框，踢走 4 GROUND 巨显眼数字
+return (
   <div style={{ textAlign: 'center', padding: '40px', backgroundColor: '#064e3b', borderRadius: '20px', border: '2px solid #10b981' }}>
-    <h2 style={{ color: '#6ee7b7' }}>🎉 Grouping Complete!</h2>
+    <h2 style={{ color: '#6ee7b7' }}>🎉 Registration Successful!</h2>
     
-    <div style={{ fontSize: '5em', color: 'white', fontWeight: '900', margin: '20px 0' }}>
-      {ground} <span style={{fontSize:'0.3em'}}>GROUND</span>
+    {/* ✨ 用高端大气的“ENTRY CONFIRMED”替换掉原来的随机大数字 */}
+    <div style={{ margin: '35px 0' }}>
+      <div style={{ fontSize: '2em', color: 'white', fontWeight: '900', letterSpacing: '1px' }}>
+        ENTRY CONFIRMED
+      </div>
+      <p style={{ color: '#a7f3d0', fontSize: '0.95em', marginTop: '12px', opacity: 0.9, lineHeight: '1.6' }}>
+        Your application has been received. <br />
+        Please wait for the Admin to publish official rounds & pairings.
+      </p>
     </div>
     
-    {/* ✨ 我们把原来的 Link 按钮删掉，把 Return 按钮升级成大按钮 */}
+    {/* 保留你升级的大确认按钮 */}
     <button 
       onClick={onFinish} 
       style={{ 
@@ -373,7 +388,7 @@ const handleStartGrouping = async (e) => {
     </button>
 
     <p style={{ color: '#a7f3d0', marginTop: '20px', fontSize: '0.85em', opacity: 0.8 }}>
-      You can link your OGS account in the "YOU" tab later.
+      You can review your match details in the "MATCHES" tab once pairings are live.
     </p>
   </div>
 );
@@ -383,7 +398,7 @@ const handleStartGrouping = async (e) => {
   const fetchSupabaseData = async (setPlayers, setEvents, setMessages) => {
     try {
       // 同时获取三项数据
-      const { data: p } = await supabase.from('players').select('id, name, rank, rating').order('rating', { ascending: false });
+      const { data: p } = await supabase.from('players').select('id, player_name, rank, rating').order('rating', { ascending: false });
       const { data: e } = await supabase.from('events').select('*');
       const { data: m, error: mError } = await supabase
         .from('messages')
@@ -690,7 +705,7 @@ return (
               // 这里直接调用导出逻辑
               const exportData = players.map(p => ({
                 'Player ID': p.id,
-                'Name': p.name,
+                'Name': p.player_name,
                 'Rank': p.rank,
                 'Rating': p.rating
               }));
