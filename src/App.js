@@ -325,9 +325,9 @@ const handleStartGrouping = async (e) => {
     </div>
       <h2 style={{color:'white', marginBottom:'20px'}}>Tournament Entry: {selectedEvent?.name}</h2>
       <form onSubmit={handleStartGrouping} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <input style={inputStyle} placeholder="Go Username" required onChange={e => setFormData({...formData, username: e.target.value})} />
+        <input style={inputStyle} placeholder="Player_name" required onChange={e => setFormData({...formData, username: e.target.value})} />
         <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
-        <input style={inputStyle} placeholder="Current Rating" required onChange={e => setFormData({...formData, rating: e.target.value})} />
+        <input style={inputStyle} placeholder="Rating(CGA, AGA or OGS etc.)" required onChange={e => setFormData({...formData, rating: e.target.value})} />
         <input 
   type="email" 
   placeholder="Email Address" 
@@ -335,7 +335,7 @@ const handleStartGrouping = async (e) => {
   readOnly 
   style={{ ...inputStyle, opacity: 0.7 }} // ✅ 两个样式合并成了一个
 />
-        <input style={inputStyle} type="password" placeholder="OGS Password (for link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
+        <input style={inputStyle} type="password" placeholder="Password (for playing link)" required onChange={e => setFormData({...formData, password: e.target.value})} />
         <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Join & Start Grouping</button>
       </form>
     </div>
@@ -744,7 +744,7 @@ return (
  
 <AdminPlayersPage players={players} fetchPlayers={() => fetchSupabaseData(setPlayers, setEvents, setMessages)} setActiveTab={setActiveTab} />
       
-      </> // 👈 就是这里！刚才漏掉了这个闭合标签
+      </> // 👈 就是这里！
     ) : (
       <div style={{ padding: '50px', textAlign: 'center', backgroundColor: 'white', borderRadius: '16px', color: '#1e293b' }}>
         <h2 style={{ color: '#e61d2b' }}>🔒 Access Denied</h2>
@@ -811,13 +811,20 @@ return (
 </div>
 
    {/* --- 2. 留言输入区 --- */}
-<div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
+  <div style={{ 
+    display: 'flex', 
+    gap: '10px', 
+    marginBottom: '30px',
+    maxWidth: '800px', 
+    width: '100%', 
+    margin: '0 auto 30px auto' 
+  }}>
   <input 
     type="text" 
     value={inputText} 
     onChange={(e) => setInputText(e.target.value)} 
 
-onKeyDown={(e) => {
+  onKeyDown={(e) => {
       if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
         e.preventDefault();
         handleSendMessage();
@@ -835,7 +842,7 @@ onKeyDown={(e) => {
     }}
   />
 
-  {/* ✨ 唯一的按钮：既有黑底白字的样式，又执行 handleSendMessage 函数 */}
+   {/* ✨ 唯一的按钮：既有黑底白字的样式，又执行 handleSendMessage 函数 */}
   <button 
     onClick={handleSendMessage} 
     style={{ 
