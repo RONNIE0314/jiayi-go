@@ -538,20 +538,88 @@ useEffect(() => {
   }
 };
 
-  // 5. OGS 验证逻辑
+  // 5. OGS 验证逻辑 (全新升级：跳转到 OGS 官网进行三方登录)
   const handleOgsVerify = () => {
-    const username = window.prompt("Enter your OGS Username:");
-    const password = window.prompt("Enter your OGS Password:");
+    // 自动读取你在前端配置的客户端 ID 和回调地址
+    const clientId = process.env.REACT_APP_OGS_CLIENT_ID;
+    const redirectUri = encodeURIComponent(process.env.REACT_APP_OGS_REDIRECT_URI);
+    
+    // 拼接 OGS 官方的三方授权大门地址
+    const ogsAuthUrl = `https://online-go.com/oauth2/authorize/?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=read`;
+    
+    console.log("🚀 正在带玩家前往 OGS 官网授权...");
+    window.location.href = ogsAuthUrl; // 轰油门，直接出发！
+  };
 
-    if (username && password) {
-      alert("OGS Verification Successful!");
-      setIsVerified(true);
-      setActiveTab('yourMatches'); 
+
+  // === 🛠️ 核心 OGS Token 交换与存盘函数 ===
+  const exchangeOgsToken = async (code) => {
+    try {
+      const edgeFunctionUrl = 'https://wupuhfafbidjstpystyj.supabase.co/functions/v1/get-ogs-token';
+
+      // 1. 发起网络请求呼叫我们的云端 Edge Function
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: code,
+          client_id: process.env.REACT_APP_OGS_CLIENT_ID,         
+          client_secret: process.env.REACT_APP_OGS_CLIENT_SECRET, 
+          redirect_uri: process.env.REACT_APP_OGS_REDIRECT_URI    
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || '从 OGS 换取 Token 失败');
+      }
+
+      console.log('🎉 成功从云端换回 OGS 令牌数据:', data);
+
+      // 2. 利用项目现有的 supabase 客户端，将拿到令牌存入数据库档案
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        const { error: updateError } = await supabase
+          .from('profiles') 
+          .update({ 
+            ogs_username: data.user?.username || '', 
+            ogs_access_token: data.access_token,
+            ogs_refresh_token: data.refresh_token,
+          })
+          .eq('id', user.id); 
+
+        if (updateError) throw updateError;
+        console.log('✅ OGS 账号已成功绑定至数据库玩家档案！');
+        
+        // 3. 亮起绿灯：解锁 YOUR MATCHES 菜单，并自动跳转
+        setIsVerified(true);
+        setActiveTab('yourMatches'); 
+      }
+
+    } catch (error) {
+      console.error('❌ 对接 OGS 失败:', error.message);
+      alert(`绑定 OGS 失败: ${error.message}`);
     }
   };
 
   // 6. 生命周期监听 (初始化)
   useEffect(() => {
+    // ✨ 核心注入：在页面刚刚刷新加载时，立刻去抓取网址后面有没有 OGS 传回来的临时通行证
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+
+    if (code) {
+      console.log('🔍 检测到 URL 中包含 OGS 授权码，正在启动云端换证...');
+      exchangeOgsToken(code); // 扣动扳机，呼叫云端接口！
+      
+      // 抹掉浏览器地址栏后面难看的 ?code=xxxx 尾巴，保持应用整洁
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     if (supabase && supabase.auth) {
       // 检查当前登录状态
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -574,7 +642,7 @@ useEffect(() => {
 
   // --- 后面接你的 return (JSX) 即可 ---
 
-return (
+  return (
     <div style={containerStyle}>
       {/* --- 1. 新增：注入旋转背景的 CSS --- */}
       <style>
@@ -633,7 +701,7 @@ return (
               if (tab === 'yourMatches') return isVerified;
               return true;
             })
-.map(t => (
+            .map(t => (
               <span key={t} 
                 style={{
                   ...(activeTab === t ? activeTabStyle : tabStyle),
@@ -660,15 +728,15 @@ return (
 
       <div style={contentStyle}>
         {activeTab === 'events' && <EventsPage events={events} onEventClick={handleEventClick} />}
-       {/* ✨ 新增：报名流程页面渲染 */}
-       {activeTab === 'registration_flow' && (
-       <RegistrationFlow 
-       user={user} 
-       selectedEventId={selectedEventId} 
-       events={events} 
-        onFinish={() => setActiveTab('you')} 
-        />
-      )}
+        {/* ✨ 新增：报名流程页面渲染 */}
+        {activeTab === 'registration_flow' && (
+          <RegistrationFlow 
+            user={user} 
+            selectedEventId={selectedEventId} 
+            events={events} 
+            onFinish={() => setActiveTab('you')} 
+          />
+        )}
         
         {/* ==================== ⏸️ 暂时禁用的前端选手排行榜视图 ====================
 {activeTab === 'players' && (
@@ -1034,5 +1102,3 @@ return (
     </div> /* ✅ 闭合 containerStyle 的主体 div */
   );
 }
-
-

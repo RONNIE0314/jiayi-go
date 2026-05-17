@@ -1,0 +1,4 @@
+project_id = "wupuhfafbidjstpystyj"
+
+[functions.get-ogs-token]
+verify_jwt = false
