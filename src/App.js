@@ -1009,21 +1009,21 @@ useEffect(() => {
     <div style={matchTimeStyle}>
       <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
                 
-                <a 
-    href="https://online-go.com/play" 
-    target="_blank" 
-    rel="noreferrer" 
-    style={{
-      ...playBtnStyle, 
-      textDecoration: 'none', 
-      display: 'inline-flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      marginTop: '8px'
-    }}
-  >
-    ✅ Let's Play!
-  </a>
+<a 
+  href={`https://online-go.com/game/${registration?.ogs_match || ''}`} 
+  target="_blank" 
+  rel="noreferrer" 
+  style={{
+    ...playBtnStyle, 
+    textDecoration: 'none', 
+    display: 'inline-flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    marginTop: '8px'
+  }}
+>
+  ✅ Let's Play!
+</a>
               
               </div>
             </div>
