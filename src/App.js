@@ -1010,7 +1010,7 @@ useEffect(() => {
       <div style={{ fontWeight: 'bold' }}>Apr 16 9:00 pm</div>
                 
 <a 
-  href={`https://online-go.com/game/${registration?.ogs_match || ''}`} 
+  href="https://online-go.com/game/87072434"
   target="_blank" 
   rel="noreferrer" 
   style={{
