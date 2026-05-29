@@ -62,4 +62,4 @@ export function MatchRoom({ match }) {
       </div>
     </div>
   );
-}
+} 
