@@ -3,6 +3,7 @@ import { supabase } from './supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import YourMatches from './YourMatches';
+import { AdminMatchBinder } from './components/AdminMatchBinder';
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
 const containerStyle = { 
@@ -747,7 +748,10 @@ return (
           <div>
           <p style={{ color: '#94a3b8', fontSize: '0.9em' }}>Admin Control Panel</p>
           </div>
-
+        <div style={{ padding: '20px' }}>
+           {/* 🎯 把这台机器安放在这里，它就会自己开始工作！ */}
+            <AdminMatchBinder />
+        </div>
         {/* 📥 这是你的新按钮！ */}
           <button 
             onClick={() => {
