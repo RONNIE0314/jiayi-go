@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { MatchRoom } from './components/MatchRoom';
+import YourMatches from './YourMatches';
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
 const containerStyle = { 
@@ -462,8 +462,6 @@ function App() {
   const [registrations, setRegistrations] = useState([]);
   const [events, setEvents] = useState([]);
   const [user, setUser] = useState(null);
-  const [nextMatch, setNextMatch] = useState(null);
-  const [historyMatches, setHistoryMatches] = useState([]);
 
   // ✨ 插入点 1：注册相关的状态
   const [isRegistering, setIsRegistering] = useState(false);
@@ -613,35 +611,6 @@ useEffect(() => {
       };
     }
   }, []);
-
-  useEffect(() => {
-    const fetchMatches = async () => {
-      if (!user) return;
-
-// 1. 正确获取 data 和 error
-const { data: matches, error } = await supabase
-  .from('user_matches')
-  .select('*, player_name, opponent_name, ogs_url, player_ready, opponent_ready')
-  
-console.log("从数据库获取到的 matches 数据:", matches);
-// 2. 现在这里的 error 就是上面定义的了，eslint 不会再报错
-if (error) {
-  console.error("查询错误:", error.message);
-  return;
-}
-
-      if (matches) {
-        
-  // 找到那条 false 的数据
-    const next = matches.find(m => m.player_ready === false);
-  // 同样对历史记录进行兼容判断
-  setNextMatch(next);
-  setHistoryMatches(matches.filter(m => m.player_ready === true));
-      }
-    };
-
-    fetchMatches();
-  }, [user]);
 
   // --- 后面接你的 return (JSX) 即可 ---
 
@@ -934,18 +903,8 @@ return (
           </div>
         )}
 
-  {/* 页面 2：比赛记录 (YOUR MATCHES 页面) */}
-  {activeTab === 'yourMatches' && (
-         <div style={{ padding: '20px' }}>
-           <h2 style={{ fontSize: '1.5em' }}>🏆 Your Matches</h2>
-      
-           <h3 style={{ color: '#64748b', fontSize: '0.85em', fontWeight: '800' }}>NEXT MATCH</h3>
-           {nextMatch ? <MatchRoom match={nextMatch} type="next" /> : <p>No upcoming matches.</p>}
-
-           <h3 style={{ color: '#64748b', fontSize: '0.85em', fontWeight: '800', marginTop: '30px' }}>HISTORY</h3>
-           {historyMatches.map((m) => <MatchRoom key={m.id} match={m} type="history" />)}
-          </div>
-        )}
+{/* 🎯 页面 2: 比赛记录 (全新全量数据版 Your Matches 页面) */}
+{activeTab === 'yourMatches' && <YourMatches />}
 
       </div> {/* ✅ 闭合 contentStyle 的 div */}
     </div> /* ✅ 闭合 containerStyle 的 div */
