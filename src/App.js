@@ -183,7 +183,6 @@ function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
 
 const handleAdd = async (e) => {
     e.preventDefault();
-    // 修改 1：不再检查 player_name，改为检查 user_id (假设这是下拉菜单传来的ID)
     if (!newPlayer.user_id || !newPlayer.rank) return alert("Please select a User and Rank");
     
     // 修改 2：插入字段改为 user_id
@@ -435,7 +434,7 @@ const handleStartGrouping = async (e) => {
       const { data: e } = await supabase.from('events').select('*');
       const { data: m, error: mError } = await supabase
         .from('messages')
-        .select('*')
+        .select('id, content, created_at, player_id, profiles!inner(username)')
         .order('created_at', { ascending: false });
 
       if (mError) throw mError;
@@ -531,8 +530,7 @@ useEffect(() => {
         .insert([
           { 
             content: inputText,
-            player_name: user.user_metadata.full_name ||user.email,
-            player_id: user.id
+            player_id: user.id            
           }
         ]);
 
@@ -856,7 +854,7 @@ return (
               {messages.map((msg) => (
                 <div key={msg.id} style={messageContainerStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.player_name || msg.user}</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.profiles?.username || msg.user}</span>
                     <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
                   </div>
                   <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>{msg.content || msg.text}</p>
