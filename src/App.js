@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -70,8 +70,7 @@ const adminContainerStyle = {
 const adminFormStyle = { display: 'flex', gap: '10px', marginBottom: '30px', backgroundColor: '#1e293b', padding: '20px', borderRadius: '12px', border: '1px solid #8b5cf6' };
 const inputStyle = { padding: '10px', borderRadius: '6px', border: '1px solid #334155', backgroundColor: '#0f172a', color: 'white', flex: 1 };
 const addBtnStyle = { backgroundColor: '#22c55e', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' };
-const deleteBtnStyle = { backgroundColor: '#7744ef', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8em' };
-// 在 App.js 顶部定义样式
+const deleteBtnStyle = { backgroundColor: '#7744ef', display: 'flex', color: 'white', border: 'none', padding: '12px 15px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8em' };
 const messageContainerStyle = {
   backgroundColor: 'white',
   padding: '12px 15px',
@@ -82,7 +81,6 @@ const messageContainerStyle = {
 };
 
 // --- 2. 页面子组件 ---
-// 活动页
 function EventsPage({ events, onEventClick }) {
   // 1. 定义内部样式
   const eventCardStyle = {
@@ -166,29 +164,34 @@ function EventsPage({ events, onEventClick }) {
   );
 }
 // 管理后台页
-function AdminPlayersPage({ players, fetchPlayers, setActiveTab }) {
+function AdminPlayersPage({ players, setPlayers, fetchPlayers, setActiveTab }) {
   const [newPlayer, setNewPlayer] = useState({ user_id: '', rank: '', rating: '' });
-  const [usersList, setUsersList] = useState([]);
+  const [profiles, setProfiles] = useState([]); // 这样定义 profiles
+   
   useEffect(() => {
     const fetchCandidates = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ is_deleted: true })
-        .select('id, username');
-      
-      if (data) setUsersList(data);
-      else console.error("加载用户列表失败:", error);
+      console.log("=== 正在拉取候选用户总表 ===");
+      const { data } = await supabase.from('profiles').select('id, username');
+      if (data) setProfiles(data);
     };
     fetchCandidates();
+    fetchPlayers();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 const handleAdd = async (e) => {
     e.preventDefault();
     if (!newPlayer.user_id || !newPlayer.rank) return alert("Please select a User and Rank");
     
+    // 🛠️ 修复 1：从 profiles 数组中，根据当前选中的 user_id 找出对应的用户名
+    const selectedProfile = profiles.find(p => p.id === newPlayer.user_id);
+    const chosenName = selectedProfile ? selectedProfile.username : "新选手";
+
     // 修改 2：插入字段改为 user_id
     const { error } = await supabase.from('players').insert([{ 
       user_id: newPlayer.user_id, // 关联外键
+      player_name: chosenName, // ✨ 名字不再是空的
       rank: newPlayer.rank, 
       rating: parseInt(newPlayer.rating) || 0 
     }]);
@@ -196,10 +199,13 @@ const handleAdd = async (e) => {
     if (error) {
       console.error("数据库插入失败:", error);
       alert("Error: " + error.message);
+    
     } else {
-      // 修改 3：重置时也对应 user_id
       setNewPlayer({ user_id: '', rank: '', rating: '' });
-      await fetchPlayers();
+      
+      // 🛠️ 3. 添加选手成功后，同样直接抓取并更新内部状态
+      const { data } = await supabase.from('players').select('*');
+      if (data) setPlayers(data);
     }
 };
 
@@ -208,15 +214,14 @@ const handleAdd = async (e) => {
     if (window.confirm("Delete this player?")) {
       const { error } = await supabase.from('players').delete().eq('player_id', id);
       if (!error) {
-      // 不调用那个报错的函数，直接刷新页面，数据会自动重新加载
-      window.location.reload(); 
+    fetchPlayers();
     } else {
-      console.error("删除失败:", error);
+      console.error("删除失败:", error.message);
       alert("删除失败: " + error.message);
     }
     }
   };
-
+  
   return (
     <div style={{ ...listStyle, position: 'relative', zIndex: 1 }}> {/* 👈 这里建议用 listStyle 包裹，确保边距统一 */}
       
@@ -246,38 +251,50 @@ const handleAdd = async (e) => {
           onChange={(e) => setNewPlayer({...newPlayer, user_id: e.target.value})}
         >
           <option value="">请选择一名选手</option>
-          {usersList.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.username}
-            </option>
-          ))}
+         {/* 🛠️ 核心修改 1：把外层选择框的 players.map 改回 profiles.map */}
+{profiles && profiles.map(p => (
+  <option key={p.id} value={p.id}>
+    {p.username}
+  </option>
+))}
         </select>
         <input style={inputStyle} placeholder="Rank (e.g. 1d)" value={newPlayer.rank} onChange={e => setNewPlayer({...newPlayer, rank: e.target.value})} />
         <input style={inputStyle} type="number" placeholder="Rating" value={newPlayer.rating} onChange={e => setNewPlayer({...newPlayer, rating: e.target.value})} />
         <button style={{ ...addBtnStyle, pointerEvents: 'auto' }} onClick={handleAdd}>ADD</button>
       </div>
-      <div style={listStyle}>
-        {players.map(p => (
-          <div key={p.id} style={cardStyle}>
-            <div style={infoStyle}>
-              <span style={nameStyle}>{p.profiles?.username || "未知选手"}</span>
-              <span style={rankStyle}>{p.rank}</span></div>
-            <button 
-  style={{ 
-    ...deleteBtnStyle, 
-    position: 'relative',   // 必须加这行
-    zIndex: 9999            // 强行把按钮浮在最上层
-  }} 
-  onClick={(e) => {
-    e.stopPropagation();    // 阻止点击被父级的 div 拦截
-    handleDelete(p.player_id);
-  }}
->
-  DELETE
-</button>
-          </div>
-        ))}
+        
+{players && players.map(p => {
+  // 1. 安全降级取名逻辑：优先取 player_name，其次取 profiles 关联，最后用未知选手保底
+  const displayName = p.player_name || p.profiles?.username || "未知选手";
+
+  return (
+    <div key={p.player_id || p.id} style={cardStyle}>
+      <div style={infoStyle}>
+        {/* 2. 修复：恢复正确的 style 变量引用 */}
+        <span style={nameStyle}>{displayName}</span>
+        <span style={rankStyle}>{p.rank || '无段位'}</span>
       </div>
+      
+      {/* 3. 修复：确保按钮正确闭合，并且逻辑通畅 */}
+      <button
+        style={{
+          ...deleteBtnStyle,
+          position: 'relative', 
+          zIndex: 9999,
+          display: 'block',     // 确保块级显示
+          background: 'red'     // 强制显眼颜色，测试用
+        }}
+        onClick={(e) => {
+          e.stopPropagation();  // 阻止父级容器拦截点击
+          handleDelete(p.player_id); 
+        }}
+      >
+        DELETE
+      </button>
+    </div>
+  );
+})}
+    
     </div>
   );
 }
@@ -589,6 +606,15 @@ useEffect(() => {
     }
   };
 
+  // 🛠️ 使用 useCallback 锁死引用，防止它变成父组件渲染的传毒之源
+  const handleAdminRefresh = useCallback(async () => {
+    fetchSupabaseData(setPlayers, setEvents, setMessages, setRegistrations);
+    const { data } = await supabase.from('players').select('*');
+    if (data) {
+      setPlayers(data); 
+    }
+  }, []); // 空依赖，一辈子引用不变
+
   // 6. 生命周期监听 (初始化)
   useEffect(() => {
     if (supabase && supabase.auth) {
@@ -718,23 +744,28 @@ return (
       <span>Rating</span>
     </div>
 
-    {/* 数据行 */}
-    {registrations
-      .sort((a, b) => b.rating - a.rating)
-      .map((reg, index) => (
-      <div key={reg.id} style={{ 
-        display: 'grid', 
-        gridTemplateColumns: '2fr 2fr 1fr', 
-        alignItems: 'center', 
-        padding: '12px 20px',
-        borderBottom: '1px solid #334155', // 行与行之间的分割线
-        backgroundColor: index % 2 === 0 ? '#355d9c' : '#748db9'
-      }}>
-        <span style={nameStyle}>{reg.player_name || "未知选手"}</span>
-        <span style={rankStyle}>{reg.rank}</span>
-        <span style={ratingStyle}>{reg.rating} pts</span>
-      </div>
-            ))}
+{/* 🛠️ 终极修复：将数据源换成全局的 players 数组 */}
+{/* 数据行 */}
+{players && players
+  .sort((a, b) => (parseInt(b.rating) || 0) - (parseInt(a.rating) || 0)) // 按照积分从高到低排序
+  .map((player, index) => (
+    <div key={player.player_id || player.id || index} style={{
+      display: 'grid',
+      gridTemplateColumns: '2fr 2fr 1fr',
+      alignItems: 'center',
+      padding: '12px 20px',
+      borderBottom: '1px solid #334155',
+      backgroundColor: index % 2 === 0 ? '#1e293b' : '#0f172a' // 保持完美的斑马线交替颜色
+    }}>
+      {/* 🛠️ 渲染完美的选手姓名 */}
+      <span style={nameStyle}>{player.player_name || player.username || "未知选手"}</span>
+      {/* 🛠️ 渲染选手段位 */}
+      <span style={rankStyle}>{player.rank || "无"}</span>
+      {/* 🛠️ 渲染选手积分 */}
+      <span style={ratingStyle}>{player.rating || 0} pts</span>
+    </div>
+  ))
+}
           </div>
         )}
 
@@ -746,7 +777,7 @@ return (
         {/* --- ✨ 新增：管理后台顶部的 LOGO 或预览图 --- */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div>
-          <p style={{ color: '#94a3b8', fontSize: '0.9em' }}>Admin Control Panel</p>
+          <p style={{ color: '#94a3b8', marginTop: '10px', paddingBottom: '50px', fontSize: '0.9em' }}>Admin Control Panel</p>
           </div>
         <div style={{ padding: '20px' }}>
            {/* 🎯 把这台机器安放在这里，它就会自己开始工作！ */}
@@ -809,7 +840,12 @@ return (
     </div>
   </div>
  
-  <AdminPlayersPage players={players} fetchPlayers={() => fetchSupabaseData(setPlayers, setEvents, setMessages, setRegistrations)} setActiveTab={setActiveTab} />
+<AdminPlayersPage 
+  players={players} 
+  setPlayers={setPlayers}
+  fetchPlayers={handleAdminRefresh} 
+  setActiveTab={setActiveTab} 
+/>
       
       </> // 👈 就是这里！刚才漏掉了这个闭合标签
     ) : (

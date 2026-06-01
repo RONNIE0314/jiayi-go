@@ -1,208 +1,99 @@
 import React, { useState } from 'react';
 
-/**
- * 辅助函数：获取名字的前两个字母作为头像缩写
- */
-function getShortName(name) {
-  if (!name) return '??';
-  return name.slice(0, 2).toUpperCase();
-}
+export function MatchRoom({ match, currentUserName }) {
+  const [showModal, setShowModal] = useState(false);
 
-/**
- * MatchRoom 子组件
- * @param {object} match - 来自 user_matches 表的单场对局数据对象
- * @param {string} currentUserId - 当前登录用户的 UUID
- * @param {string} currentUserName - 当前登录用户的名字（例如 "MonikaL" 或 "medspare"）
- */
-export function MatchRoom({ match, currentUserId, currentUserName }) {
-  // 💡 引入一个局部状态，完美而安全地控制绿色按钮的悬停高亮
-  const [isHovered, setIsHovered] = useState(false);
+  if (!match) return null;
 
-  if (!match) {
-    return <div style={{ padding: '10px', color: '#888' }}>暂无对局数据</div>;
-  }
-
-  // ==================== 🎯 真正完美的动态主视角判定 ====================
-  const isPlayerA = 
-    (currentUserId && match.player_id === currentUserId) || 
-    (currentUserName && match.player_name?.toLowerCase() === currentUserName?.toLowerCase());
-
-  const opponentInfo = isPlayerA ? match.opponent_info : match.player_info;
-
-  const opponentName = isPlayerA 
-    ? (match.opponent_name || opponentInfo?.player_name || 'Unknown Player') 
-    : (match.player_name || opponentInfo?.player_name || 'Unknown Player');
-
-  const opponentRank = isPlayerA 
-    ? (opponentInfo?.rank || match.opponent_rank || '暂无段位') 
-    : (match.player_info?.rank || match.player_rank || '暂无段位');
-
-  const opponentEmail = isPlayerA 
-    ? (opponentInfo?.user_email || match.opponent_email || '未绑定邮箱') 
-    : (match.player_info?.user_email || match.player_email || '未绑定邮箱');
-
-  const opponentShort = getShortName(opponentName);
-
-  // ==================== 🏆 动态处理胜负状态转换 ====================
-  let displayResult = "⏳ 进行中";
-  let isFinished = false;
-
-  if (match.result && match.result !== 'Null' && match.result !== '') {
-    const resUpper = match.result.toUpperCase();
-    isFinished = true;
-    
-    if (resUpper === 'WIN') {
-      displayResult = isPlayerA ? "🟢 胜局 (WIN)" : "🔴 负局 (LOSS)";
-    } else if (resUpper === 'LOSS') {
-      displayResult = isPlayerA ? "🔴 负局 (LOSS)" : "🟢 胜局 (WIN)";
+  // 1. 跳转逻辑
+  const executeJump = () => {
+    if (match.ogs_link) {
+      window.open(match.ogs_link, '_blank', 'noopener,noreferrer');
+      setShowModal(false);
     }
-  }
-
-  // ==================== 🎨 样式定义 ====================
-  const cardStyle = {
-    background: 'rgba(30, 41, 59, 0.7)', 
-    border: '1px solid rgba(255, 255, 255, 0.1)',
-    borderRadius: '12px',
-    padding: '20px',
-    marginBottom: '15px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
   };
 
-  const leftZoneStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  };
-
-  const avatarStyle = {
-    width: '48px',
-    height: '48px',
-    borderRadius: '50%',
-    background: isFinished && displayResult.includes('负局') ? '#4b5563' : '#3b82f6', 
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 'bold',
-    fontSize: '1.1em',
-    color: '#fff',
-    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
-  };
-
-  const nameStyle = {
-    fontSize: '1.2em',
-    fontWeight: '600',
-    color: '#f8fafc',
-    margin: '0 0 4px 0',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  };
-
-  const rankBadgeStyle = {
-    fontSize: '0.75em',
-    background: '#1e293b',
-    border: '1px solid #38bdf8',
-    color: '#38bdf8',
-    padding: '2px 8px',
-    borderRadius: '4px',
-    fontWeight: 'normal'
-  };
-
-  const metaStyle = {
-    fontSize: '0.85em',
-    color: '#94a3b8',
-    margin: '2px 0'
-  };
-
-  const rightZoneStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-end',
-    justifyContent: 'center', 
-    gap: '10px'
-  };
-
-  const resultBadgeStyle = {
-    fontSize: '0.9em',
-    fontWeight: '600',
-    padding: '6px 12px',
-    borderRadius: '20px',
-    background: displayResult.includes('胜局') ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-    color: displayResult.includes('胜局') ? '#4ade80' : '#f87171',
-    border: displayResult.includes('胜局') ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)'
-  };
-
-  // ✅ 安全的绿色 NAGO 风格 "Let's Play!" 按钮样式
-  const letsPlayButtonStyle = {
-    backgroundColor: isHovered ? '#f0fdf4' : 'white', // 👈 纯 React 状态驱动悬停颜色，永不报错！
-    color: '#10b981',
-    border: '1px solid #10b981',
-    padding: '6px 14px',
-    borderRadius: '20px', 
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '0.85rem',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '6px',
-    boxShadow: '0 2px 4px rgba(16, 185, 129, 0.1)',
-    textDecoration: 'none',
-    transition: 'all 0.2s ease'
-  };
+  // 2. 格式化结果显示（统一转为大写判断，避免数据源大小写不一致问题）
+  const result = match.result ? String(match.result).toUpperCase() : null;
+  const isFinished = result === 'WIN' || result === 'LOSS';
 
   return (
-    <div style={cardStyle}>
-      {/* 👈 左侧区域：对手头像与详细基础资料 */}
-      <div style={leftZoneStyle}>
-        <div style={avatarStyle}>{opponentShort}</div>
+    <>
+      <div style={{ 
+        background: '#48667e', 
+        border: '1px solid #e2e8f0', 
+        borderRadius: '8px', 
+        padding: '16px 24px', 
+        marginBottom: '12px',
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      }}>
         <div>
-          <h4 style={nameStyle}>
-            {opponentName}
-            <span style={rankBadgeStyle}>{opponentRank}</span>
-          </h4>
-          <p style={metaStyle}>📧 {opponentEmail}</p>
-          <p style={metaStyle}>📅 {match.round_name || '常规对局'} | {match.match_time ? new Date(match.match_time).toLocaleString() : '时间待定'}</p>
+          <div style={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>{match.round_name}</div>
+          <div style={{ fontSize: '0.95em', color: '#334155' }}>VS {match.opponent_name || '未知对手'}</div>
+        </div>
+
+        <div style={{ fontSize: '0.9em', color: '#475569' }}>
+          {match.match_time || '时间待定'}
+        </div>
+
+        <div>
+          {isFinished ? (
+            // 显示胜负结果
+            <div style={{ 
+              padding: '8px 20px', 
+              background: result === 'WIN' ? '#d0e3ce' : '#c7d8cd',
+              color: result === 'WIN' ? '#16a34a' : '#e11d48',
+              borderRadius: '6px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              minWidth: '80px',
+              border: `1px solid ${result === 'WIN' ? '#bbf7d0' : '#fecaca'}`
+            }}>
+              {result === 'WIN' ? 'Win' : 'Loss'}
+            </div>
+          ) : (
+            // 显示跳转按钮
+            <button 
+              onClick={() => setShowModal(true)}
+              style={{ 
+                padding: '8px 20px', 
+                background: match.ogs_link ? '#f0fdf4' : '#f1f5f9',
+                color: match.ogs_link ? '#16a34a' : '#64748b',
+                border: `1px solid ${match.ogs_link ? '#bbf7d0' : '#cbd5e1'}`,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                transition: 'all 0.2s'
+              }}
+            >
+              {match.ogs_link ? '✅ Let\'s Play!' : '等待链接'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* 👉 右侧区域 */}
-      <div style={rightZoneStyle}>
-        {isFinished ? (
-          <div style={resultBadgeStyle}>{displayResult}</div>
-        ) : match.ogs_link ? (
-          <a 
-          href={(() => {
-  // 1. 如果录入的是完整链接，直接放行
-  if (match.ogs_link && match.ogs_link.startsWith('http')) {
-    return match.ogs_link;
-  }
-  
-  // 2. 如果是乱码 Token，前端自动判断当前登录用户的执方颜色
-  // 💡 根据组件内的变量：如果对手名字是 opponent_name，说明你当前是 player_name
-  // 假设在你的 user_matches 表设计中，player_name 执黑，opponent_name 执白
-  // 我们来核对当前选手的身份：
-  const isOpponent = currentUserName && match.opponent_name?.toLowerCase() === currentUserName?.toLowerCase();
-  const side = isOpponent ? 'white' : 'black';
-  
-  return `https://online-go.com/online-league/league-player?side=${side}&id=${match.ogs_link}`;
-})()} 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            style={letsPlayButtonStyle}
-            onMouseEnter={() => setIsHovered(true)}  // 👈 极简的状态切换
-            onMouseLeave={() => setIsHovered(false)} // 👈 极简的状态切换
-          >
-            <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>✓</span> 
-            Let's Play!
-          </a>
-        ) : (
-          <span style={{ fontSize: '0.85em', color: '#64748b', fontStyle: 'italic' }}>暂未绑定房间</span>
-        )}
-      </div>
-    </div>
+      {/* 确认登录模态框 */}
+      {showModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#754444', padding: '25px', borderRadius: '12px', width: '350px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 15px 0' }}>确认身份与登录</h3>
+            <p style={{ fontSize: '0.9em', color: '#475569' }}>当前身份：<strong>{currentUserName || '未知'}</strong></p>
+            <p style={{ fontSize: '0.85em', color: '#666', marginBottom: '20px' }}>请确保在另一个标签页登录了对应的 OGS 账号。</p>
+            
+            <a href="https://online-go.com/" target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: '20px', color: '#3b82f6', fontSize: '0.85em' }}>
+              👉 点击检查 OGS 登录状态
+            </a>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>取消</button>
+              <button onClick={executeJump} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: 'none', background: '#16a34a', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>进入对局</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
