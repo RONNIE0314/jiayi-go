@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import YourMatches from './YourMatches';
 import { AdminMatchBinder } from './components/AdminMatchBinder';
+import MatchMatrix from './MatchMatrix'; // 👈 把它领进 App.js 的大门
 
 // --- 1. 样式定义 (包含 YOU 页面所需的所有样式) ---
 const containerStyle = { 
@@ -81,7 +82,7 @@ const messageContainerStyle = {
 };
 
 // --- 2. 页面子组件 ---
-function EventsPage({ events, onEventClick }) {
+function EventsPage({ events, onEventClick, selectedEventId, hasMatrixData }) {
   // 1. 定义内部样式
   const eventCardStyle = {
     backgroundColor: '#323c50',
@@ -142,14 +143,48 @@ function EventsPage({ events, onEventClick }) {
               height: '200px', 
               overflow: 'hidden', 
               borderRadius: '12px 12px 0 0',
-              backgroundColor: '#1e293b' 
+              backgroundColor: '#1e293b',
+              position: 'relative'
             }}>
+              
               <img 
                 src="/background1.jpg" 
                 alt={ev.name} 
                 style={imgStyle}  // 👈 重点：确保这一行存在且拼写正确
               />
+            
+            {/* 🏷️ 华丽降临：动态彩色状态徽章（绝对定位挂在右上角） */}
+          <div style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            borderRadius: '9999px',
+            padding: '4px 10px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+            // 💡 判断颜色：如果当前正在看这场比赛大表，就给绿标，否则给蓝标
+            backgroundColor: hasMatrixData && selectedEventId === ev.id ? '#ecfdf5' : '#eff6ff',
+            color: hasMatrixData && selectedEventId === ev.id ? '#047857' : '#1d4ed8',
+            border: hasMatrixData && selectedEventId === ev.id ? '1px solid #a7f3d0' : '1px solid #bfdbfe'
+          }}>
+            {/* 🟢/🔵 闪烁小圆点 */}
+            <span style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              backgroundColor: hasMatrixData && selectedEventId === ev.id ? '#10b981' : '#3b82f6'
+            }} />
+            {hasMatrixData && selectedEventId === ev.id ? '对局已生成' : '正在报名中'}
+          </div>
+            
             </div>
+
+
 
             {/* 卡片下方的文字信息 */}
             <div style={infoBoxStyle}>
@@ -474,6 +509,10 @@ const handleStartGrouping = async (e) => {
 function App() {
   // 1. 状态定义区 (确保顺序正确，先定义再使用)
   const [activeTab, setActiveTab] = useState('events');
+  
+  const [selectedEventId, setSelectedEventId] = useState(null);
+  const [hasMatrixData, setHasMatrixData] = useState(false);
+  
   const [isVerified, setIsVerified] = useState(false);
   const [players, setPlayers] = useState([]);
   const [registrations, setRegistrations] = useState([]);
@@ -486,22 +525,44 @@ function App() {
   const location = useLocation();
 
 useEffect(() => {
-  // 1. 同步状态：如果路径回到了首页/赛事页，强制把 activeTab 改回 'events'
-  // 这样才能解决点击 Back 后其他标签页点不动的问题
-  if (location.pathname === '/events' || location.pathname === '/') {
-    setActiveTab('events');
-  }
-  
-  // 如果发现是从报名页传回来的 state 里要求打开弹窗
-  if (location.state?.openModal) {
-    setIsRegistering(true); // 👈 这一行会自动弹出那个 Confirm 框
+    // 1. 同步状态：如果路径回到了首页/赛事页，强制把 activeTab 改回 'events'
+    if (location.pathname === '/events' || location.pathname === '/') {
+      setActiveTab('events');
+    }
 
-    // 【可选但重要】清理 state，防止用户刷新页面时又自动弹出
-    window.history.replaceState({}, document.title);
-  }
-}, [location, setActiveTab]); // 加上依赖项
+    // 如果发现是从报名页传回来的 state 里要求打开弹窗
+    if (location.state?.openModal) {
+      setIsRegistering(false);
 
-  const [selectedEventId, setSelectedEventId] = useState(null);
+      // 清理 state，防止用户刷新页面时又自动弹出
+      window.history.replaceState({}, document.title);
+    }
+  }, [location, setActiveTab]); // 🎯 依赖项退回到最初最安全的两个
+
+// 🟢 追加在 504 行的独立首屏同步加载器
+  useEffect(() => {
+    const initFetchPlayers = async () => {
+      try {
+        console.log("—— [系统首屏启动] 正在后台强制拉取选手列表 ——");
+        
+        // 🔮 1. 强制无条件去捞选手（请确保 'players' 和你 Supabase 里的表名一致）
+        const { data, error } = await supabase
+          .from('players')
+          .select('*');
+
+        if (error) throw error;
+        
+        if (data) {
+          console.log("—— [系统首屏成功] 捞到选手数据量:", data.length);
+          setPlayers(data); // 稳稳存进第 479 行的全局 players 状态里
+        }
+      } catch (err) {
+        console.error("[首屏拉取选手失败]:", err.message);
+      }
+    };
+
+    initFetchPlayers();
+  }, []); // 💡 保持空依赖，保证它一启动网站只无条件执行一次
 
   // 留言状态：包含默认欢迎词和输入框文字
   const [inputText, setInputText] = useState(""); 
@@ -510,9 +571,41 @@ useEffect(() => {
     { id: 2, user_name: "Guest Player", content: "Anyone up for a game later tonight?", created_at: new Date().toISOString() }
   ]);
 
-  const handleEventClick = (eventId) => {
+// 🏆 完美分流版：根据数据库是否有真实对局，来决定进大表还是弹窗
+  const handleEventClick = async (eventId) => {
     setSelectedEventId(eventId);
-    setIsRegistering(true);
+    
+    try {
+      console.log(`—— 🔍 正在点击审查赛事 [${eventId}] 是否有有效的真实对局 ——`);
+      
+      const { data, error } = await supabase
+        .from('user_matches')
+        .select('id, opponent_name')
+        .eq('event_id', String(eventId));
+
+      if (error) throw error;
+
+      // 🔒 1. 严格过滤核心：排除掉对手是 'SYSTEM_START' 的开赛占位数据
+      const realMatches = data ? data.filter(m => m.opponent_name !== 'SYSTEM_START') : [];
+
+      // 🎯 2. 判断是否存在真正的围棋对局（比如你导进去的 6 条真实数据）
+      if (realMatches.length > 0) {
+        // —— ✅ 场景 A：真正开赛（有了真正的选手对局，直接进大表） ——
+        setHasMatrixData(true);
+        setActiveTab('matrix');   // 顺理成章带你去查看 6 场矩阵对局
+        setIsRegistering(false);  // 关闭报名确认窗
+      } else {
+        // —— 🔒 场景 B：尚未开赛（数据库是空的，或者里面只有 1 条 SYSTEM_START） ——
+        setHasMatrixData(false);
+        setIsRegistering(true);   // 🌟 核心：只有触发这里，才会弹出后补选手报名确认窗！
+        setActiveTab('events');   // 强力铁闸：强制留在首页，哪都不准切！
+      }
+    } catch (err) {
+      console.error("检查对局表权限失败:", err.message);
+      setHasMatrixData(false);
+      setIsRegistering(true);    
+      setActiveTab('events');     // 哪怕出错也死死守在首页弹窗
+    }
   };
 
     // 3. 登录/登出逻辑
@@ -593,6 +686,94 @@ useEffect(() => {
     console.error("Export Error:", err.message);
   }
 };
+
+// 🔄 智能双向开关：一键开赛 或 撤回开赛退回报名状态
+  const handleGenerateMatches = async (eventId) => {
+    const safeEventId = String(eventId);
+    if (!safeEventId) {
+      alert("错误：赛事 ID 不存在！");
+      return;
+    }
+
+    // 🔍 1. 先去检查数据库里，当前赛事是否已经有生成的对局了
+    try {
+      const { data: existingMatches, error: checkError } = await supabase
+        .from('user_matches')
+        .select('id, opponent_name')
+        .eq('event_id', safeEventId);
+
+      if (checkError) throw checkError;
+
+     // 🔒 精准过滤：算出除了系统的 SYSTEM_START 之外，到底有没有真正的选手对局
+      const realMatches = existingMatches ? existingMatches.filter(m => m.opponent_name !== 'SYSTEM_START') : [];
+
+      // ==========================================
+      // ⏪ 场景 A：如果已经有对局，说明是开赛状态 -> 执行【撤回并返回报名】
+      // ==========================================
+      if (existingMatches && existingMatches.length > 0) {
+        const confirmReverse = window.confirm(
+          `警告：检测到赛事 [${safeEventId}] 已经是【对局已生成】状态！\n\n你确定要撤回开赛、清除这些对局数据，让赛事重新返回【正在报名中】状态以允许后补选手报名吗？\n(此操作将清除该赛事的初始化对局记录)`
+        );
+        
+        if (!confirmReverse) return;
+
+        // 从数据库里抹去该赛事的所有对局记录
+        const { error: deleteError } = await supabase
+          .from('user_matches')
+          .delete()
+          .eq('event_id', safeEventId)
+          .eq('opponent_name', 'SYSTEM_START'); // 👈 只杀标记，不伤无辜！
+        if (deleteError) throw deleteError;
+
+        alert("♻️ 撤回成功！赛事已成功重置为【正在报名中】状态，快让后补选手去报名吧！");
+        
+        // 🚨 触发前端状态同步：如果没有其他对局数据了，设为 false 让前台卡片瞬间变蓝
+   // 🚨 这一句是原本的第 731 行，保持原样：
+      setHasMatrixData(false);
+
+      // 🎯 在这里加上这一行，把 realMatches 顺手打印出来：
+      console.log("📊 撤回时检测到的剩余选手对局数量:", realMatches.length);
+
+      return;
+    } // 👈 这一行是场景 A (if 块) 的正统闭合花括号，对应你图里的第 734 行
+
+      // ==========================================
+      // 🚀 场景 B：如果没有对局，说明是报名状态 -> 执行原有的【一键开赛】
+      // ==========================================
+      const confirmStart = window.confirm(`确定要为赛事 [${safeEventId}] 正式一键生成初始化对局吗？`);
+      if (!confirmStart) return;
+
+      console.log(`—— 🚀 正在往 user_matches 表注入赛事 [${safeEventId}] 的定制开赛标志 ——`);
+      
+      const timestampSuffix = Math.floor(Math.random() * 10000);
+      const uniqueMatchId = `R1_START_${safeEventId}_${timestampSuffix}`;
+
+      const { error: insertError } = await supabase
+        .from('user_matches')
+        .insert([
+          { 
+            id: uniqueMatchId,                 // ✅ 对应你的 id 列 (文本)
+            event_id: safeEventId,             // ✅ 精准隔离不同赛事的关键一列
+            round: 1,                          // ✅ 对应你的 round 列
+            round_name: '2026_Spring_R1',      // ✅ 对应你的 round_name 文本列
+            player_name: 'JIAYI_Admin',        // ✅ 平台管理员占位
+            opponent_name: 'SYSTEM_START',     // ✅ 系统开赛信号占位对手
+            player_ready: false,               
+            is_live: false,                    
+            result: 'Null'                     
+          }
+        ]);
+
+      if (insertError) throw insertError;
+
+      alert("🎉 恭喜！开赛信号已全自动生成并完美写入数据库！");
+      setHasMatrixData(true); // 遥控前台瞬间刷新变绿
+
+    } catch (err) {
+      console.error("操作失败，完整调试信息:", err);
+      alert(`数据库操作失败: ${err.message}`);
+    }
+  };
 
   // 5. OGS 验证逻辑
     const handleOgsVerify = () => {
@@ -690,11 +871,14 @@ return (
             marginRight: '110px', 
           flex: 1 
           }}>
-          {['events', 'players', 'you', 'admin', 'yourMatches']
+          {['events', 'players', 'you', 'admin', 'yourMatches', 'matrix']
             .filter(tab => {
               if (tab === 'you') return !!user;
               if (tab === 'admin') return user?.email === "bjmyschool@gmail.com";
               if (tab === 'yourMatches') return isVerified;
+              if (tab === 'matrix') {
+                  return !!selectedEventId && hasMatrixData;
+                }
               return true;
             })
             .map(t => (
@@ -722,7 +906,14 @@ return (
     
 
 <div style={contentStyle}>
-  {activeTab === 'events' && <EventsPage events={events} onEventClick={handleEventClick} />}
+  {activeTab === 'events' && (
+  <EventsPage 
+    events={events} 
+    onEventClick={handleEventClick} 
+    selectedEventId={selectedEventId} 
+    hasMatrixData={hasMatrixData} 
+  />
+)}
        {/* ✨ 新增：报名流程页面渲染 */}
        {activeTab === 'registration_flow' && (
        <RegistrationFlow 
@@ -732,7 +923,24 @@ return (
         onFinish={() => setActiveTab('you')} 
         />
       )}
-      
+
+{/* 🛡️ 安全熔断拦截：就算按钮露出来了或者通过别的方式切到了 matrix 页 */}
+      {/* 只要发现根本没选赛事，或者后台没有对局数据，直接原地熔断，不渲染大表，而是降级渲染首页的 EventsPage */}
+      {activeTab === 'matrix' && (!selectedEventId || !hasMatrixData) ? (
+        <EventsPage 
+  events={events} 
+  onEventClick={handleEventClick} 
+  selectedEventId={selectedEventId} 
+  hasMatrixData={hasMatrixData} 
+/>
+      ) : (
+        activeTab === 'matrix' && (
+          <div className="max-w-6xl mx-auto p-4">
+            <MatchMatrix />
+          </div>
+        )
+      )}
+
   {activeTab === 'players' && (
           <div style={listStyle}>
             <h1 style={headerStyle}>Rankings</h1>
@@ -809,36 +1017,61 @@ return (
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
             }}
           >
-            📥 Export Excel
+            📥 Export Excel For Players
           </button>
         </div>      
 
-      {/* --- 赛事报名导出区 --- */}
-  <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '12px' }}>
-    <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '1em' }}>Export Event Rosters</h3>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-      {events.map(event => (
-        <button 
-        key={event.id}
-        onClick={() => handleExportEventRegistrations(event.id, event.title)}
-        style={{
-          backgroundColor: '#059669',
-          color: 'white',
-          padding: '6px 12px',
-          borderRadius: '6px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '0.8em',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '5px'
-        }}
-        >
-        📥 {event.title || 'Unnamed Event'}
-        </button>
-      ))}
-    </div>
-  </div>
+{/* --- 赛事报名导出区 --- */}
+      <div style={{ marginTop: '20px', padding: '15px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+        <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '1em' }}>Export Event Rosters</h3>
+        
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+          {events && events.map(event => (
+            <div key={event.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+              
+              {/* 📥 导出花名册按钮 */}
+              <button
+                onClick={() => handleExportEventRegistrations(event.id, event.title)}
+                style={{
+                  backgroundColor: '#059669',
+                  color: 'white',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.8em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                📥 导出花名册: {event.title || 'Unnamed Event'}
+              </button>
+
+              {/* ⚡ 一键开赛(生成对局)按钮 */}
+              <button
+                onClick={() => handleGenerateMatches(event.id)}
+                style={{
+                  backgroundColor: '#10b981',
+                  color: 'white',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.8em',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                ⚡ 一键开赛(生成对局)
+              </button>
+
+            </div>
+          ))}
+        </div>
+      </div>
  
 <AdminPlayersPage 
   players={players} 
