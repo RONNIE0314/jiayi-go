@@ -179,7 +179,7 @@ function EventsPage({ events, onEventClick, selectedEventId, hasMatrixData }) {
               borderRadius: '50%',
               backgroundColor: hasMatrixData && selectedEventId === ev.id ? '#10b981' : '#3b82f6'
             }} />
-            {hasMatrixData && selectedEventId === ev.id ? '对局已生成' : '正在报名中'}
+            {hasMatrixData && selectedEventId === ev.id ? 'Matches Generated' : 'Registering'}
           </div>
             
             </div>
@@ -712,7 +712,7 @@ useEffect(() => {
       // ==========================================
       if (existingMatches && existingMatches.length > 0) {
         const confirmReverse = window.confirm(
-          `警告：检测到赛事 [${safeEventId}] 已经是【对局已生成】状态！\n\n你确定要撤回开赛、清除这些对局数据，让赛事重新返回【正在报名中】状态以允许后补选手报名吗？\n(此操作将清除该赛事的初始化对局记录)`
+          `警告：检测到赛事 [${safeEventId}] 已经是【对局已生成】状态！\n\n你确定要撤回开赛、清除这些对局数据,让赛事重新返回【Registering】状态以允许后补选手报名吗？\n(此操作将清除该赛事的初始化对局记录)`
         );
         
         if (!confirmReverse) return;
@@ -725,7 +725,7 @@ useEffect(() => {
           .eq('opponent_name', 'SYSTEM_START'); // 👈 只杀标记，不伤无辜！
         if (deleteError) throw deleteError;
 
-        alert("♻️ 撤回成功！赛事已成功重置为【正在报名中】状态，快让后补选手去报名吧！");
+        alert("♻️ 撤回成功!赛事已成功重置为【Registering】状态,快让后补选手去报名吧！");
         
         // 🚨 触发前端状态同步：如果没有其他对局数据了，设为 false 让前台卡片瞬间变蓝
    // 🚨 这一句是原本的第 731 行，保持原样：
@@ -1128,7 +1128,7 @@ return (
                 <div key={msg.id} style={messageContainerStyle}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                     <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{msg.profiles?.username || msg.user}</span>
-                    <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : msg.time}</span>
+                    <span style={{ fontSize: '0.8em', color: '#94a3b8' }}>{msg.created_at ? new Date(msg.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : msg.time}</span>
                   </div>
                   <p style={{ margin: 0, color: '#475569', fontSize: '0.95em', lineHeight: '1.5' }}>{msg.content || msg.text}</p>
                 </div>
