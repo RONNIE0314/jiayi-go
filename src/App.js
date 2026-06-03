@@ -425,7 +425,8 @@ const handleStartGrouping = async (e) => {
         <input style={inputStyle} placeholder="Rank (e.g. 5k)" required onChange={e => setFormData({...formData, rank: e.target.value})} />
         <input style={inputStyle} placeholder="Current Rating" required onChange={e => setFormData({...formData, rating: e.target.value})} />
         <input style={inputStyle} type="text" placeholder="OGS Username" required onChange={e => setFormData({...formData, ogs_username: e.target.value})} />
-        <input type="email" placeholder="Email Address" value={user?.email} readOnly style={{ ...inputStyle, opacity: 0.7 }} />
+       {/* 完美安全的 JSX 注释写法 */}
+       <input type="password" placeholder="Set Your Password" required onChange={e => setFormData({...formData, password: e.target.value})} style={inputStyle} />
         <button type="submit" style={{...addBtnStyle, marginTop:'10px'}}>Join & Start Grouping</button>
       </form>
     </div>
@@ -776,14 +777,45 @@ useEffect(() => {
   };
 
   // 5. OGS 验证逻辑
-    const handleOgsVerify = () => {
-    const username = window.prompt("Enter your OGS Username:");
-    const password = window.prompt("Enter your OGS Password:");
+// 🏆 升级完全体：OGS 用户名 + 专属 password 列双重数据库匹配
+  const handleOgsVerify = async () => {
+    // 1. 弹出输入框获取 OGS 用户名
+    const inputUsername = window.prompt("Enter your OGS Username:");
+    if (!inputUsername || !inputUsername.trim()) return;
 
-    if (username && password) {
-      alert("OGS Verification Successful!");
-      setIsVerified(true);
-      setActiveTab('yourMatches'); 
+    // 2. 弹出第二个输入框获取密码
+    const inputPassword = window.prompt("Enter your Password:");
+    if (!inputPassword || !inputPassword.trim()) return;
+
+    const cleanUsername = inputUsername.trim();
+    const cleanPassword = inputPassword.trim();
+
+    try {
+      // 💡 核心安全校验：去数据库里同时对齐 ogs_username 和真正的 password 这两列！
+      const { data: registration, error } = await supabase
+        .from('registrations')
+        .select('ogs_username, password, player_name')
+        .eq('ogs_username', cleanUsername)
+        .eq('password', cleanPassword) // 👈 精准匹配已有字段 password
+        .maybeSingle(); // 仅匹配单条唯一的记录
+
+      if (error) throw error;
+
+      // 🛑 严格拦截：如果用户名或密码错误，导致在注册表里找不到对应的选手
+      if (!registration) {
+        alert(`❌ Verification Failed!\n\nThe OGS Username or Password you entered is incorrect. Please check your credentials.`);
+        return;
+      }
+
+      // —— ✅ 双重验证完全通过：确认为选手本人操作 ——
+      alert(`🎉 OGS Verification Successful!\nWelcome back, ${registration.player_name}.`);
+      
+      setIsVerified(true);         // 写入成功标记，允许解锁
+      setActiveTab('yourMatches'); // 丝滑切到选手的专属比赛记录页
+
+    } catch (err) {
+      console.error("Verification error:", err.message);
+      alert("Database connection error. Please try again later.");
     }
   };
 
@@ -1154,7 +1186,7 @@ return (
             <div style={{ paddingTop: '20px', borderTop: '2px dashed #f1f5f9', textAlign: 'center' }}>
               <p style={{ color: '#94a3b8', fontSize: '0.85em', marginBottom: '12px' }}>Looking for your tournament records?</p>
               <button onClick={handleOgsVerify} style={{ backgroundColor: 'transparent', color: '#64748b', padding: '8px 20px', borderRadius: '20px', border: '1px solid #e2e8f0', cursor: 'pointer', fontSize: '0.85em', fontWeight: '600' }}>
-                🏆 Link OGS Account
+                🏆 Link Your Matches
               </button>
             </div>
           </div>

@@ -43,14 +43,12 @@ export default function YourMatches() {
           }
         });
 
-        // 4. 获取比赛记录 (确保包含 ogs_link 和 player_ogs_username)
-// 修改 YourMatches.js 中的第 53-56 行
-const { data: matches, error: fetchError } = await supabase
-  .from('user_matches')
-  .select('*, ogs_link, player_ogs_username') // 显式请求，不要只用 *
-  .or(`player_id.eq.${uid},opponent_id.eq.${uid}`)
-  .order('round_name', { ascending: true })
-  .setHeader('Cache-Control', 'no-cache'); // 强制不使用缓存
+        // 4. 获取比赛记录
+        const { data: matches, error: fetchError } = await supabase
+          .from('user_matches')
+          .select('*, ogs_link, player_ogs_username') 
+          .or(`player_id.eq.${uid},opponent_id.eq.${uid}`)
+          .order('round_name', { ascending: true });
 
         if (fetchError) throw fetchError;
 
@@ -61,9 +59,62 @@ const { data: matches, error: fetchError } = await supabase
           opponent_info: playerUuidMap[item.opponent_id] || null
         })) || [];
 
-        // 6. 分流
+        // 6. 分流状态管理
         setNextMatches(enrichedMatches.filter(m => !m.result || m.result === 'Null'));
         setHistoryMatches(enrichedMatches.filter(m => m.result && m.result !== 'Null'));
+
+        // 📡 7. 【核心新增】订阅 Supabase Realtime，监听比赛对局链接的实时变更
+        const matchSubscription = supabase
+          .channel('user-matches-realtime-channel')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'user_matches' // 盯着对局表
+            },
+            (payload) => {
+              const updatedMatch = payload.new;
+              
+              // 💡 如果更新的这场比赛跟当前登录用户有关
+              if (updatedMatch.player_id === uid || updatedMatch.opponent_id === uid) {
+                console.log("🎮 Realtime Match Update Detected!", updatedMatch);
+                
+                // 富化更新的那单条对局数据
+                const enrichedUpdatedItem = {
+                  ...updatedMatch,
+                  player_info: playerUuidMap[updatedMatch.player_id] || null,
+                  opponent_info: playerUuidMap[updatedMatch.opponent_id] || null
+                };
+
+                // 分流同步更新：检查是未完赛还是已完赛
+                const isFinished = updatedMatch.result && updatedMatch.result !== 'Null';
+
+                if (!isFinished) {
+                  // 更新未完成比赛列表
+                  setNextMatches(prev => 
+                    prev.map(m => m.id === updatedMatch.id ? enrichedUpdatedItem : m)
+                  );
+                } else {
+                  // 如果直接出了结果，从 Next 移除并加入 History
+                  setNextMatches(prev => prev.filter(m => m.id !== updatedMatch.id));
+                  setHistoryMatches(prev => {
+                    const exists = prev.some(m => m.id === updatedMatch.id);
+                    if (exists) {
+                      return prev.map(m => m.id === updatedMatch.id ? enrichedUpdatedItem : m);
+                    }
+                    return [...prev, enrichedUpdatedItem];
+                  });
+                }
+              }
+            }
+          )
+          .subscribe();
+
+        // 组件卸载或重新执行时清除订阅，释放内存
+        return () => {
+          supabase.removeChannel(matchSubscription);
+        };
 
       } catch (err) {
         console.error("❌ 数据加载失败:", err.message);
@@ -90,7 +141,7 @@ const { data: matches, error: fetchError } = await supabase
             match={item} 
             currentUserName={currentUserName}
           />
-        )) : <p style={{ color: '#666' }}>暂无待进行的对局</p>}
+        )) : <p style={{ color: '#666' }}>No upcoming matches scheduled.</p>}
       </div>
 
       {/* HISTORY 区域 */}
@@ -102,7 +153,7 @@ const { data: matches, error: fetchError } = await supabase
             match={item} 
             currentUserName={currentUserName}
           />
-        )) : <p style={{ color: '#666' }}>暂无历史记录</p>}
+        )) : <p style={{ color: '#666' }}>No match history found.</p>}
       </div>
     </div>
   );
