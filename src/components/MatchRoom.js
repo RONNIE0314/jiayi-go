@@ -50,7 +50,7 @@ export function MatchRoom({ match, currentUserName }) {
       // 3. 🛑 如果根本没绑定过，直接拦截，强行打发去 OGS 官方授权大门
       if (!profile || !profile.ogs_username) {
         console.log("👋 检测到未绑定 OGS 账号，开启 OAuth2 授权流...");
-        const clientId = 'dRygshrNvJWbyOiSdTkgFW1gRPgDNZGTB43AYLbtvd';
+        const clientId = 'dRyqsrNvJWbyOiSdTkFW1gRPgDNZGTB43AYLbtvd';
         
         // 动态获取当前平台的域名 (本地就是 localhost:3000，线上就是 jiayi-go.vercel.app)
         const redirectUri = encodeURIComponent(window.location.origin); 
