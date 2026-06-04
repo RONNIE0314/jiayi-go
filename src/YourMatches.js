@@ -137,18 +137,29 @@ useEffect(() => {
         console.log("🎯 检测到 OGS 授权码，开始向安全中转站换取 Token:", code);
         
         try {
+  // 🔑【核心修复】先从前端捞出当前选手的最新本地登录 Session
+          const { data: { session } } = await supabase.auth.getSession();
+          
           const { data, error } = await supabase.functions.invoke('ogs-oauth', {
             body: { 
               code: code,
               redirect_uri: window.location.origin
+            },
+            // 🚀【关键一步】把 Access Token 挂载在 headers 传过去，彻底解锁后端的 user.id！
+            headers: {
+              Authorization: `Bearer ${session?.access_token}`
             }
           });
 
           if (error) throw error;
 
           alert(`🎉 授权绑定成功！OGS 账号 [${data.ogs_username}] 已锁定至您的账号档案！`);
+          
           window.history.replaceState({}, document.title, window.location.origin + "/#/yourMatches");
           
+          // 💡 强迫页面重新加载最新绑定的数据
+          window.location.reload();
+
         } catch (err) {
           console.error("❌ OGS 绑定失败:", err.message);
           alert(`绑定失败: ${err.message}`);

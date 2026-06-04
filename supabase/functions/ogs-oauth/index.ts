@@ -7,7 +7,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // 1. 响应前端的 OPTIONS 预检请求 (CORS 跨域必备)
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -15,13 +14,11 @@ serve(async (req) => {
   try {
     const { code, redirect_uri } = await req.json()
 
-    // 🔒 2. 去 OGS 官方服务器换取 Access Token
+    // 1. 去 OGS 官方服务器换取 Access Token
     const tokenUrl = "https://online-go.com/oauth2/token/"
-    
     const params = new URLSearchParams()
-    // 💡 记得把下面这两个换成你在 OGS 开发者后台申请到的真实凭据
-    params.append('client_id', 'dRyqsrNvJWbyOiSdTkFW1gRPgDNZGTB43AYLbtvd')
-    params.append('client_secret', 'wTFsUc5C2JnnySahYeFLEpCpx2vm3vM9lT9LNDREIBpY8iqCBTQqBJPVs7OU5BNbLJARjpMh9x8p7Rqco1qO27SOEtv1o8QLHviBcJiRhmTAfSSB3eLwDUW0cfQFe2Xs')
+    params.append('client_id', 'dRygshrNvJWbyOiSdTkWF1gRPgDNZGTB43AYLbtvd')
+    params.append('client_secret', 'wTfUc5C2JnnySahYeFLEpCpx2vm3vM9lT9LNDREIBpY8iqCBTQqBJPVs7OU5BNbLJARjpMh9x8p7Rqco1qO27SOEtv1o8QLHviBcJiRhmTAfSSB3eLwDUW0cfQFe2Xs')
     params.append('grant_type', 'authorization_code')
     params.append('code', code)
     params.append('redirect_uri', redirect_uri)
@@ -39,28 +36,32 @@ serve(async (req) => {
 
     const tokenData = await tokenResponse.json()
 
-    // 👤 3. 用刚拿到的 Token 捞一下该选手的 OGS 个人信息（比如用户名）
+    // 2. 捞一下该选选手在 OGS 的个人信息
     const meResponse = await fetch("https://online-go.com/api/v1/me", {
       headers: { "Authorization": `Bearer ${tokenData.access_token}` }
     })
+    
+    // 💡 重点：先安全转化为 JSON 对象
     const meData = await meResponse.json()
 
-    // 💾 4. 连接你的 Supabase 数据库，把数据砸进 profiles 表
+    // 3. 连接 Supabase 数据库
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     )
 
-    // 安全获取当前登录的平台用户 uid
     const { data: { user } } = await supabaseClient.auth.getUser()
     if (!user) throw new Error("未授权的平台用户")
 
-    // 更新该用户的 OGS 绑定状态
+    // 💡 4. 【高光时刻】三保险机制，绝对防止 NULL 的出现
+    // 围棋平台有些返回 username，有些返回 name，如果都没有，直接用原本平台填写的 username 保底！
+    const finalUsername = meData.username || meData.name || user.user_metadata?.username || 'OGS选手';
+
     const { error: dbError } = await supabaseClient
       .from('profiles')
       .update({
-        ogs_username: meData.username,
+        ogs_username: finalUsername,
         ogs_access_token: tokenData.access_token,
         ogs_refresh_token: tokenData.refresh_token,
         updated_at: new Date().toISOString()
@@ -70,7 +71,7 @@ serve(async (req) => {
     if (dbError) throw dbError
 
     return new Response(
-      JSON.stringify({ success: true, ogs_username: meData.username }),
+      JSON.stringify({ success: true, ogs_username: finalUsername }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
     )
 
