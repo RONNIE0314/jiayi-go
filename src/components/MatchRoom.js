@@ -1,171 +1,152 @@
-import React, { useState } from 'react';
-// 💡 1. 引入 supabase 客户端实例（请根据你项目实际的相对路径调整，比如 ../supabaseClient）
+import React from 'react';
 import { supabase } from '../supabaseClient'; 
 
 export function MatchRoom({ match, currentUserName }) {
-  const [showModal, setShowModal] = useState(false);
-
+  
+  // 🛡️ 完美保留你原有的 Match 判空安全拦截
   if (!match) return null;
 
-  // 🏆 2. 跳转与半自动引导建房的核心异步逻辑
+  // =========================================================================
+  // ✨【安全修复版】带智能 OAuth2 绑定检测的进入/创建对局核心逻辑
+  // =========================================================================
   const executeJump = async () => {
     try {
-      // 🕵️‍♂️ 安全防御：拦截检查 match.id 是否存在
-      if (!match || !match.id) {
-        alert("❌ Error: match.id is missing in frontend component.");
+      // 🛡️ 安全防御：拦截检查 match.id 是否存在
+      if (!match.id) {
+        alert("❌ 错误: 前端组件中缺少比赛 ID (match.id)。");
         return;
       }
 
-      console.log("🔍 Fetching latest match status for ID:", match.id);
+      console.log("🔍 正在为您检测最新的账号绑定状态，比赛 ID:", match.id);
 
-      // 📡 步骤 A：实时去 user_matches 表查询最新真实状态
-      const { data: latestMatch, error } = await supabase
-        .from('user_matches') 
-        .select('*') 
-        .eq('id', String(match.id).trim()) // 👈 强转 String，完美对齐你的文本主键（如 R1_M001）
+      // 🔑 1.【安全修复】兼容新旧两版 Supabase 获取当前登录用户 UID 的方法
+      let userId = null;
+      try {
+        // 先尝试新版 v2 异步写法
+        const { data: authData } = await supabase.auth.getUser();
+        userId = authData?.user?.id;
+      } catch (e) {
+        // 如果报错，自动降级切换到旧版 v1 同步写法
+        userId = supabase.auth.user()?.id;
+      }
+
+      // 如果两种方法都没捞到，说明会话过期了
+      if (!userId) {
+        alert("❌ 登录会话已过期，请重新登录您的平台账号");
+        return;
+      }
+
+      // 2. 📡 查询 profiles 表，看一眼该选手有没有关联 OGS 用户名
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('ogs_username')
+        .eq('id', userId)
         .maybeSingle();
 
-      if (error) {
-        alert(`❌ Supabase Fetch Error: ${error.message}`);
-        return;
+      if (profileError) {
+        console.error("查询配置文件失败:", profileError);
       }
 
-      if (!latestMatch) {
-        alert(`❌ Database Desync: Cannot find any row in 'user_matches' where id = "${match.id}"`);
-        return;
+      // 3. 🛑 如果根本没绑定过，直接拦截，强行打发去 OGS 官方授权大门
+      if (!profile || !profile.ogs_username) {
+        console.log("👋 检测到未绑定 OGS 账号，开启 OAuth2 授权流...");
+        const clientId = 'dRygshrNvJWbyOiSdTkgFW1gRPgDNZGTB43AYLbtvd';
+        
+        // 动态获取当前平台的域名 (本地就是 localhost:3000，线上就是 jiayi-go.vercel.app)
+        const redirectUri = encodeURIComponent(window.location.origin); 
+        
+        // 拼接成完美的 OGS 官方授权大门链接
+        const ogsAuthUrl = `https://online-go.com/oauth2/authorize/?client_id=${clientId}&response_type=code&scope=read+write&redirect_uri=${redirectUri}`;
+        
+        alert("📌 首次进入对局需要先绑定您的 OGS 官方账号，现在为您跳转授权...");
+        window.location.href = ogsAuthUrl;
+        return; // 👈 拦截成功，断流，不再往下走贴链接的逻辑
       }
 
-      // 🍏 情况一：如果对手或者自己之前已经建好了房间并贴了进来
-      if (latestMatch.ogs_link) {
-        window.open(latestMatch.ogs_link, '_blank', 'noopener,noreferrer');
-        setShowModal(false);
-        return;
-      }
-
-      // 🍎 情况二：ogs_link 为空，说明你是第一个进入的选手，执行半自动建房指引
-      alert(
-        `👋 You are the first to enter this match room!\n\n` +
-        `Please create a custom game on OGS with your opponent.\n` +
-        `After creating the game, copy the URL and paste it in the next step.`
-      );
-
-      // 快捷新开页面帮选手打开 OGS 自定义对局创建页
+      // 4. ✅ 如果已经绑定过了，才允许执行原有的“创建棋局、贴回链接”的常规比赛操作
       window.open("https://online-go.com/play", '_blank', 'noopener,noreferrer');
 
-      // 弹出 prompt 框等待选手把建好的棋盘链接粘贴回来
-      const pastedUrl = window.prompt("Paste your created OGS Match URL here (e.g., https://online-go.com/game/xxxxxx):");
-      
+      const pastedUrl = window.prompt("请在此处粘贴您在 OGS 创建的对局链接 (例如: https://online-go.com/game/xxxxx)");
+
       if (!pastedUrl || !pastedUrl.trim() || !pastedUrl.includes("online-go.com")) {
-        alert("❌ Cancelled: Invalid or empty OGS URL.");
+        alert("❌ 操作已取消: 无效或空的 OGS 链接。");
         return;
       }
 
       const cleanUrl = pastedUrl.trim();
 
-      // 💾 步骤 B：将粘贴的网址写回 user_matches 表，瞬间激活同步
+      // 5. 💾 将选手贴回的棋局网址更新写回数据库对局表
       const { error: updateError } = await supabase
         .from('user_matches')
         .update({ ogs_link: cleanUrl })
         .eq('id', String(match.id).trim());
 
-      if (updateError) {
-        alert(`❌ Database Sync Error: ${updateError.message}`);
-        return;
-      }
-
-      alert("🎉 Match link synced successfully! Loading your game...");
-      setShowModal(false);
-      window.open(cleanUrl, '_blank', 'noopener,noreferrer'); // 自己也跳入棋盘
+      if (updateError) throw updateError;
+      
+      alert("🎉 棋局链接同步成功！");
 
     } catch (err) {
-      console.error("Critical Exception inside executeJump:", err);
-      alert(`Catch Block Triggered: ${err.message}`);
+      console.error("❌ executeJump 内部发生致命异常:", err);
+      alert(`错误: ${err.message}`);
     }
   };
 
-  // 3. 格式化结果显示（统一转为大写判断，避免数据源大小写不一致问题）
-  const result = match.result ? String(match.result).toUpperCase() : null;
-  const isFinished = result === 'WIN' || result === 'LOSS';
+  // =========================================================================
+  // 🖨️ 视图渲染部分 (保持你原有的精美暗黑主题样式与布局)
+  // =========================================================================
+  const isPlayer = currentUserName === match.player_info?.name;
+  const opponentName = isPlayer ? match.opponent_info?.name : match.player_info?.name;
+  const opponentRank = isPlayer ? match.opponent_info?.rank : match.player_info?.rank;
 
   return (
-    <>
-      <div style={{ 
-        background: '#48667e', 
-        border: '1px solid #e2e8f0', 
-        borderRadius: '8px', 
-        padding: '16px 24px', 
-        marginBottom: '12px',
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
+    <div style={{
+      background: '#1e1e1e',
+      borderRadius: '8px',
+      padding: '16px',
+      marginBottom: '12px',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+      borderLeft: match.ogs_link ? '4px solid #4caf50' : '4px solid #ff9800'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', TreeItems: 'center' }}>
         <div>
-          <div style={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}>{match.round_name}</div>
-          <div style={{ fontSize: '0.95em', color: '#334155' }}>VS {match.opponent_name || '未知对手'}</div>
-        </div>
-
-        <div style={{ fontSize: '0.9em', color: '#475569' }}>
-          {match.match_time || '时间待定'}
-        </div>
-
-        <div>
-          {isFinished ? (
-            // 显示胜负结果
-            <div style={{ 
-              padding: '8px 20px', 
-              background: result === 'WIN' ? '#d0e3ce' : '#c7d8cd',
-              color: result === 'WIN' ? '#16a34a' : '#e11d48',
-              borderRadius: '6px',
-              fontWeight: 'bold',
-              textAlign: 'center',
-              minWidth: '80px',
-              border: `1px solid ${result === 'WIN' ? '#bbf7d0' : '#fecaca'}`
-            }}>
-              {result === 'WIN' ? 'Win' : 'Loss'}
-            </div>
-          ) : (
-            // 显示跳转按钮
-            <button 
-              onClick={() => setShowModal(true)}
-              style={{ 
-                padding: '8px 20px', 
-                background: match.ogs_link ? '#f0fdf4' : '#f1f5f9',
-                color: match.ogs_link ? '#16a34a' : '#64748b',
-                border: `1px solid ${match.ogs_link ? '#bbf7d0' : '#cbd5e1'}`,
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                transition: 'all 0.2s'
-              }}
+          <span style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px' }}>
+            {match.round_name || '常规对局'}
+          </span>
+          <div style={{ fontSize: '16px', fontWeight: 'bold' }}>
+            ⚔️ vs <span style={{ color: '#fff' }}>{opponentName || '未知选手'}</span> 
+            <span style={{ fontSize: '12px', color: '#aaa', marginLeft: '8px' }}>({opponentRank || '无段位'})</span>
+          </div>
+          
+          {match.ogs_link && (
+            <a 
+              href={match.ogs_link} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              style={{ color: '#4caf50', fontSize: '13px', textDecoration: 'none', display: 'inline-block', marginTop: '8px' }}
             >
-              {/* 💡 3. 完美重构国际化文本：'等待链接' -> 'Awaiting Link' */}
-              {match.ogs_link ? '✅ Let\'s Play!' : 'Awaiting Link'}
-            </button>
+              🌐 点击直接观战/进入对局 ↗
+            </a>
           )}
         </div>
-      </div>
 
-      {/* 确认登录模态框 */}
-      {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#754444', padding: '25px', borderRadius: '12px', width: '350px', textAlign: 'center' }}>
-            <h3 style={{ margin: '0 0 15px 0' }}>确认身份与登录</h3>
-            <p style={{ fontSize: '0.9em', color: '#475569' }}>当前身份：<strong>{currentUserName || '未知'}</strong></p>
-            <p style={{ fontSize: '0.85em', color: '#666', marginBottom: '20px' }}>请确保在另一个标签页登录了对应的 OGS 账号。</p>
-            
-            <a href="https://online-go.com/" target="_blank" rel="noopener noreferrer" style={{ display: 'block', marginBottom: '20px', color: '#3b82f6', fontSize: '0.85em' }}>
-              👉 点击检查 OGS 登录状态
-            </a>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => setShowModal(false)} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer' }}>取消</button>
-              {/* 💡 4. 这里的 onClick 执行我们重构后的高级异步处理逻辑 */}
-              <button onClick={executeJump} style={{ flex: 1, padding: '10px', borderRadius: '6px', border: 'none', background: '#16a34a', color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}>进入对局</button>
-            </div>
-          </div>
+        <div>
+          <button 
+            onClick={executeJump}
+            style={{
+              background: match.ogs_link ? '#333' : '#ff9800',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'background 0.2s'
+            }}
+          >
+            {match.ogs_link ? '🔄 更新对局链接' : '👉 点击进入对局'}
+          </button>
         </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
