@@ -123,9 +123,42 @@ export default function YourMatches() {
       }
     }
 
+
+
     getMyMatchesData();
   }, []);
 
+useEffect(() => {
+    const handleOgsCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      
+      if (code) {
+        console.log("🎯 检测到 OGS 授权码，开始向安全中转站换取 Token:", code);
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('ogs-oauth', {
+            body: { 
+              code: code,
+              redirect_uri: window.location.origin
+            }
+          });
+
+          if (error) throw error;
+
+          alert(`🎉 授权绑定成功！OGS 账号 [${data.ogs_username}] 已锁定至您的账号档案！`);
+          window.history.replaceState({}, document.title, window.location.origin + "/#/yourMatches");
+          
+        } catch (err) {
+          console.error("❌ OGS 绑定失败:", err.message);
+          alert(`绑定失败: ${err.message}`);
+        }
+      }
+    };
+
+    handleOgsCallback();
+  }, []);
+  
   if (loading) return <div style={{ color: '#fff', textAlign: 'center', padding: '40px' }}>⏳ Loading...</div>;
 
   return (
