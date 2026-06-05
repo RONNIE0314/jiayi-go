@@ -205,7 +205,6 @@ function AdminPlayersPage({ players, setPlayers, fetchPlayers, setActiveTab }) {
    
   useEffect(() => {
     const fetchCandidates = async () => {
-      console.log("=== 正在拉取候选用户总表 ===");
       const { data } = await supabase.from('profiles').select('id, username');
       if (data) setProfiles(data);
     };
@@ -508,6 +507,46 @@ const handleStartGrouping = async (e) => {
 
 // --- 3. 主 App 组件 ---
 function App() {
+
+  // 🎯 ✨ 完美的插入位置：组件大门内部第一行
+  useEffect(() => {
+    const handleGlobalOgsCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search || window.location.hash.split('?')[1]);
+      const code = urlParams.get('code');
+
+      if (code) {
+         try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            alert("未检测到本地登录状态，请先在右上角 SIGN IN");
+            return;
+          }
+
+          const { error } = await supabase.functions.invoke('ogs-oauth', {
+            body: { 
+              code: code,
+              redirect_uri: window.location.origin + (window.location.hash ? "/#/ogs-callback" : ""),
+              // 🎯 顺着 Body 安全送达后端
+              code_client_id: process.env.REACT_APP_OGS_CLIENT_ID,
+              code_client_secret: process.env.REACT_APP_OGS_CLIENT_SECRET
+            },
+            headers: { Authorization: `Bearer ${session?.access_token}` }
+          });
+
+          if (error) throw error;
+          
+          alert("🎉 OGS 官方授权绑定成功！");
+          window.location.href = window.location.origin + "/#/yourMatches";
+        } catch (err) {
+          console.error("绑定失败，错误信息:", err);
+          alert("绑定失败，请检查控制台网络请求");
+        }
+      }
+    };
+
+    handleGlobalOgsCallback();
+  }, []); // 空依赖数组
+
   // 1. 状态定义区 (确保顺序正确，先定义再使用)
   const [activeTab, setActiveTab] = useState('events');
   

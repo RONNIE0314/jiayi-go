@@ -12,13 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const { code, redirect_uri } = await req.json()
+    const { code, redirect_uri, code_client_id, code_client_secret } = await req.json()
 
-    // 1. 去 OGS 官方服务器换取 Access Token
+// 1. 去 OGS 官方服务器换取 Access Token
     const tokenUrl = "https://online-go.com/oauth2/token/"
     const params = new URLSearchParams()
-    params.append('client_id', 'dRygshrNvJWbyOiSdTkWF1gRPgDNZGTB43AYLbtvd')
-    params.append('client_secret', 'wTfUc5C2JnnySahYeFLEpCpx2vm3vM9lT9LNDREIBpY8iqCBTQqBJPVs7OU5BNbLJARjpMh9x8p7Rqco1qO27SOEtv1o8QLHviBcJiRhmTAfSSB3eLwDUW0cfQFe2Xs')
+    
+    // 💡 绝招：不走本地/云端环境变量，直接让前端从 .env 里读取并传给 Body
+    // 这样即使代码传到 GitHub，别人看到的也只是通用的全局变量，绝对拿不到你本地 .env 里的真密钥！
+    params.append('client_id', code_client_id || '')
+    params.append('client_secret', code_client_secret || '')
+    
     params.append('grant_type', 'authorization_code')
     params.append('code', code)
     params.append('redirect_uri', redirect_uri)

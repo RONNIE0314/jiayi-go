@@ -1,13 +1,13 @@
 import React from 'react';
 import { supabase } from '../supabaseClient'; 
 
-export function MatchRoom({ match, currentUserName }) {
+export function MatchRoom({ match, currentUserName, onInitiateGame }) {
   
   // 🛡️ 完美保留你原有的 Match 判空安全拦截
   if (!match) return null;
 
   // =========================================================================
-  // ✨【安全修复版】带智能 OAuth2 绑定检测的进入/创建对局核心逻辑
+  // ✨【智能联动进化版】带 OAuth2 绑定检测与一键全自动建房的核心逻辑
   // =========================================================================
   const executeJump = async () => {
     try {
@@ -17,7 +17,13 @@ export function MatchRoom({ match, currentUserName }) {
         return;
       }
 
-      console.log("🔍 正在为您检测最新的账号绑定状态，比赛 ID:", match.id);
+      // 🟢 情况 A：如果对局房间已经创建好（ogs_link 存在），点击直接直奔战场
+      if (match.ogs_link) {
+        window.open(match.ogs_link, '_blank', 'noopener,noreferrer');
+        return;
+      }
+
+      console.log("🔍 正在为您检测最新的账号绑定状态并准备自动建房，比赛 ID:", match.id);
 
       // 🔑 1.【安全修复】兼容新旧两版 Supabase 获取当前登录用户 UID 的方法
       let userId = null;
@@ -60,30 +66,13 @@ export function MatchRoom({ match, currentUserName }) {
         
         alert("📌 首次进入对局需要先绑定您的 OGS 官方账号，现在为您跳转授权...");
         window.location.href = ogsAuthUrl;
-        return; // 👈 拦截成功，断流，不再往下走贴链接的逻辑
+        return; // 👈 拦截成功，断流
       }
 
-      // 4. ✅ 如果已经绑定过了，才允许执行原有的“创建棋局、贴回链接”的常规比赛操作
-      window.open("https://online-go.com/play", '_blank', 'noopener,noreferrer');
-
-      const pastedUrl = window.prompt("请在此处粘贴您在 OGS 创建的对局链接 (例如: https://online-go.com/game/xxxxx)");
-
-      if (!pastedUrl || !pastedUrl.trim() || !pastedUrl.includes("online-go.com")) {
-        alert("❌ 操作已取消: 无效或空的 OGS 链接。");
-        return;
+      // 4. ✅ 如果已经绑定过了，且这场比赛还没有链接，触发父组件传过来的“一键自动化建房大招”
+      if (onInitiateGame) {
+        onInitiateGame();
       }
-
-      const cleanUrl = pastedUrl.trim();
-
-      // 5. 💾 将选手贴回的棋局网址更新写回数据库对局表
-      const { error: updateError } = await supabase
-        .from('user_matches')
-        .update({ ogs_link: cleanUrl })
-        .eq('id', String(match.id).trim());
-
-      if (updateError) throw updateError;
-      
-      alert("🎉 棋局链接同步成功！");
 
     } catch (err) {
       console.error("❌ executeJump 内部发生致命异常:", err);
@@ -105,9 +94,10 @@ export function MatchRoom({ match, currentUserName }) {
       padding: '16px',
       marginBottom: '12px',
       boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+      // 🎨 样式细节微调：已建房变绿 (4caf50)，未建房变橙 (ff9800)
       borderLeft: match.ogs_link ? '4px solid #4caf50' : '4px solid #ff9800'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', TreeItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <span style={{ fontSize: '12px', color: '#888', display: 'block', marginBottom: '4px' }}>
             {match.round_name || '常规对局'}
@@ -133,7 +123,8 @@ export function MatchRoom({ match, currentUserName }) {
           <button 
             onClick={executeJump}
             style={{
-              background: match.ogs_link ? '#333' : '#ff9800',
+              // 🎨 按钮颜色联动：已建房变成稳重的深色/绿色，未建房高亮橙色引导一键建房
+              background: match.ogs_link ? '#4caf50' : '#ff9800',
               color: '#fff',
               border: 'none',
               borderRadius: '4px',
@@ -143,7 +134,7 @@ export function MatchRoom({ match, currentUserName }) {
               transition: 'background 0.2s'
             }}
           >
-            {match.ogs_link ? '🔄 更新对局链接' : '👉 点击进入对局'}
+            {match.ogs_link ? '👉 进入对局' : '⚔️ 一键自动对局'}
           </button>
         </div>
       </div>
